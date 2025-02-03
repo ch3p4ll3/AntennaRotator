@@ -6,3 +6,9 @@
 #define MOTOR_PWM 9      // Motor driver PWM
 
 
+// wifi settings
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
+
+//tcp server settings
+#define TCP_SERVER_PORT 7753
