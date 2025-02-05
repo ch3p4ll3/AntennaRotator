@@ -3,19 +3,22 @@
 #include "./rotator/rotator.h"
 
 #include <AsyncTCP.h>
-#include <DNSServer.h>
 #include <WiFi.h>
 
 #include "Arduino.h"
 
-static DNSServer DNS;
 
-Rotor azimuth(MOTOR_PWM, MOTOR_DIR, LIMIT_CW, LIMIT_CCW, ENCODER);
+Rotor azimuth(MOTOR_CW, MOTOR_CCW, LIMIT_CW, LIMIT_CCW);
 Rotator rotator(&azimuth, nullptr);
 
 // function definition
 void connect_to_wifi();
-void coreTask(void *pvParameters);
+void init_server();
+void coreTask( void * pvParameters );
+void IRAM_ATTR azimuth_encoderISR();
+
+volatile bool aziumuth_encoder = false;
+
 
 static void handleData(void *arg, AsyncClient *client, void *data, size_t len)
 {
@@ -23,15 +26,14 @@ static void handleData(void *arg, AsyncClient *client, void *data, size_t len)
 
     String decodedData = String((uint8_t *)data, len);
     String toSendString;
-    Position p = rotator.get_current_position();
+
+    Serial.println(decodedData);
 
     if (decodedData.startsWith("p"))
     {
+        Position p = rotator.get_current_position();
         Serial.println("Get current position");
-        toSendString = String(p.azimuth);
-        toSendString += "\n";
-        toSendString += String(p.elevation);
-        toSendString += "\n";
+        toSendString = toSendString = String(p.azimuth, 1) + "\n" + String(p.elevation, 1) + "\n";  // 1 decimal point;
     }
 
     else if (decodedData.startsWith("P"))
@@ -87,6 +89,11 @@ static void handleNewClient(void *arg, AsyncClient *client)
 
 void setup()
 {
+    Serial.begin(115200);
+
+    pinMode(ENCODER, INPUT);
+    attachInterrupt(digitalPinToInterrupt(ENCODER), azimuth_encoderISR, RISING);
+
     xTaskCreatePinnedToCore(
         coreTask,   /* Function to implement the task */
         "coreTask", /* Name of the task */
@@ -94,12 +101,15 @@ void setup()
         NULL,       /* Task input parameter */
         0,          /* Priority of the task */
         NULL,       /* Task handle. */
-        0);         /* Core where the task should run */
+        0
+    );  /* Core where the task should run */
 
     rotator.begin();
     rotator.set_range(130, 0);
 
     rotator.calibrate();
+
+    init_server();
 }
 
 void loop()
@@ -107,7 +117,21 @@ void loop()
     rotator.loop();
 }
 
-void coreTask(void *pvParameters)
+void coreTask( void * pvParameters ){
+    while (true){
+        if (aziumuth_encoder){
+            azimuth.encoderISR();
+            aziumuth_encoder = false;
+        }
+        delay(1);
+    }
+}
+
+void IRAM_ATTR azimuth_encoderISR(){
+    aziumuth_encoder = true;
+}
+
+void init_server()
 {
     connect_to_wifi();
 

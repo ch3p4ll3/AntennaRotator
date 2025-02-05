@@ -1,7 +1,7 @@
 #include "Arduino.h"
 #include "rotator.h"
 
-Rotator::Rotator(Rotor *azimuth, Rotor *elevation)
+Rotator::Rotator(Rotor *azimuth=nullptr, Rotor *elevation=nullptr)
 {
     this->azimuth = azimuth;
     this->elevation = elevation;
@@ -68,12 +68,12 @@ Position Rotator::get_current_position()
     if (this->azimuth)
         p.azimuth = this->azimuth->get_current_position();
     else
-        p.azimuth = 0;
+        p.azimuth = 0.0;
 
     if (this->elevation)
         p.elevation = this->elevation->get_current_position();
     else
-        p.elevation = 0;
+        p.elevation = 0.0;
 
     return p;
 }

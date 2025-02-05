@@ -1,106 +1,99 @@
 #include "Arduino.h"
 #include "rotor.h"
 
+#define DEBUG
+
 #ifdef DEBUG
-#define DEBUG_PRINT(x) DEBUG_PRINT(x)
-#define DEBUG_PRINTLN(x) DEBUG_PRINTLN(x)
+#define DEBUG_PRINT(x) Serial.print(x)
+#define DEBUG_PRINTLN(x) Serial.println(x)
 #else
 #define DEBUG_PRINT(x)
 #define DEBUG_PRINTLN(x)
 #endif
 
-Rotor *Rotor::instance = nullptr; // Define the static instance
-
-void IRAM_ATTR Rotor::encoderISR()
+void Rotor::encoderISR()
 {
-    if (instance)
+    if (this->direction)
     {
-        if (instance->direction)
-        {
-            instance->current_steps++;
-            instance->current_degrees = instance->current_steps / instance->pulses_per_degree;
-        }
-        else
-        {
-            instance->current_steps--;
-            instance->current_degrees = instance->current_steps / instance->pulses_per_degree;
-        }
+        this->current_steps++;
+        this->current_degrees = this->current_steps / this->pulses_per_degree;
+    }
+    else
+    {
+        this->current_steps--;
+        this->current_degrees = this->current_steps / this->pulses_per_degree;
     }
 }
 
-Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw, int encoder_pin)
+Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw)
 {
-    this->motor_pin = motor_pin;
-    this->motor_direction_pin = motor_direction_pin;
+    this->motor_ccw = motor_pin;
+    this->motor_cw = motor_direction_pin;
     this->limit_switch_cw = limit_switch_cw;
     this->limit_switch_ccw = limit_switch_ccw;
-    this->encoder_pin = encoder_pin;
-
-    instance = this;
 }
 
 void Rotor::begin()
 {
-    pinMode(this->motor_pin, OUTPUT);
-    pinMode(this->motor_direction_pin, OUTPUT);
-    pinMode(this->encoder_pin, INPUT);
+    pinMode(this->motor_ccw, OUTPUT);
+    pinMode(this->motor_cw, OUTPUT);
     pinMode(this->limit_switch_cw, INPUT_PULLUP);
     pinMode(this->limit_switch_ccw, INPUT_PULLUP);
-
-    attachInterrupt(this->encoder_pin, encoderISR, RISING);
 }
 
 void Rotor::loop()
 {
-    if (this->target_steps == this->current_steps || digitalRead(this->limit_switch_cw) == LOW || digitalRead(this->limit_switch_ccw) == LOW)
+    if (!this->is_calibrated)
+        return;
+
+    if (this->target_steps == this->current_steps || digitalRead(this->limit_switch_cw) == HIGH || digitalRead(this->limit_switch_ccw) == HIGH)
     {
-        analogWrite(this->motor_pin, 0);
+        digitalWrite(this->motor_cw, LOW);
+        digitalWrite(this->motor_ccw, LOW);
         return;
     }
 
     this->direction = this->target_steps > this->current_steps;
-    int motor_speed = 255;
-    float status = this->current_steps / this->target_steps;
-
-    if (status > 0.8)
-    {
-        motor_speed = motor_speed / 1.5;
+    
+    if (this->direction){
+        digitalWrite(this->motor_cw, HIGH);
+        digitalWrite(this->motor_ccw, LOW);
     }
-    else if (status > 0.9)
-    {
-        motor_speed = motor_speed / 2;
+    else {
+        digitalWrite(this->motor_cw, LOW);
+        digitalWrite(this->motor_ccw, HIGH);
     }
-    else if (status > 0.95)
-    {
-        motor_speed = motor_speed / 4;
-    }
-
-    digitalWrite(this->motor_direction_pin, this->direction);
-    analogWrite(this->motor_pin, motor_speed);
 }
 
 void Rotor::calibrate()
 {
     DEBUG_PRINTLN("CALIBRATING...");
 
-    digitalWrite(this->motor_direction_pin, HIGH);
-    analogWrite(this->motor_pin, 255);
+    digitalWrite(this->motor_cw, HIGH);
+    digitalWrite(this->motor_ccw, LOW);
 
-    while (digitalRead(this->limit_switch_cw) == HIGH)
+    while (digitalRead(this->limit_switch_cw) == LOW)
     {
     }
 
-    analogWrite(this->motor_pin, 0);
+    DEBUG_PRINTLN("Rotor to CW stop");
+
+    digitalWrite(this->motor_cw, LOW);
+    digitalWrite(this->motor_ccw, LOW);
     this->current_steps = 0;
 
-    digitalWrite(this->motor_direction_pin, LOW);
-    analogWrite(this->motor_pin, 255);
+    digitalWrite(this->motor_cw, LOW);
+     digitalWrite(this->motor_ccw, HIGH);
 
-    while (digitalRead(this->limit_switch_ccw) == HIGH)
+    while (digitalRead(this->limit_switch_ccw) == LOW)
     {
     }
 
-    analogWrite(this->motor_pin, 0);
+    DEBUG_PRINTLN("Rotor to CCW stop");
+
+    digitalWrite(this->motor_cw, LOW);
+    digitalWrite(this->motor_ccw, LOW);
+    
     this->pulses_per_degree = this->current_steps / this->max_degrees;
     DEBUG_PRINT("Pulses/Degree: ");
     DEBUG_PRINTLN(this->current_steps);
