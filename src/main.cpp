@@ -22,23 +22,23 @@ volatile bool aziumuth_encoder = false;
 
 static void handleData(void *arg, AsyncClient *client, void *data, size_t len)
 {
-    Serial.printf("\n data received from client %s \n", client->remoteIP().toString().c_str());
+    //Serial.printf("\n data received from client %s \n", client->remoteIP().toString().c_str());
 
     String decodedData = String((uint8_t *)data, len);
     String toSendString;
 
-    Serial.println(decodedData);
+    //Serial.println(decodedData);
 
     if (decodedData.startsWith("p"))
     {
         Position p = rotator.get_current_position();
-        Serial.println("Get current position");
+        //Serial.println("Get current position");
         toSendString = toSendString = String(p.azimuth, 1) + "\n" + String(p.elevation, 1) + "\n";  // 1 decimal point;
     }
 
     else if (decodedData.startsWith("P"))
     {
-        Serial.println("Set position" + decodedData);
+        //Serial.println("Set position" + decodedData);
         String numbers = decodedData.substring(2);
         int indexOfSpace = numbers.indexOf(' ');
 

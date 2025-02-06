@@ -16,12 +16,10 @@ void Rotor::encoderISR()
     if (this->direction)
     {
         this->current_steps++;
-        this->current_degrees = this->current_steps / this->pulses_per_degree;
     }
     else
     {
         this->current_steps--;
-        this->current_degrees = this->current_steps / this->pulses_per_degree;
     }
 }
 
@@ -54,6 +52,7 @@ void Rotor::loop()
     {
         digitalWrite(this->motor_cw, LOW);
         digitalWrite(this->motor_ccw, LOW);
+
         return;
     }
 
@@ -86,10 +85,11 @@ void Rotor::calibrate()
 
     digitalWrite(this->motor_cw, LOW);
     digitalWrite(this->motor_ccw, LOW);
+
     this->current_steps = 0;
 
     digitalWrite(this->motor_cw, LOW);
-     digitalWrite(this->motor_ccw, HIGH);
+    digitalWrite(this->motor_ccw, HIGH);
 
     while (digitalRead(this->limit_switch_ccw) == LOW)
     {
@@ -100,8 +100,10 @@ void Rotor::calibrate()
 
     digitalWrite(this->motor_cw, LOW);
     digitalWrite(this->motor_ccw, LOW);
+
+    DEBUG_PRINTLN(this->current_steps);
     
-    this->pulses_per_degree = this->current_steps / this->max_degrees;
+    this->pulses_per_degree = abs(this->current_steps) / this->max_degrees;
     this->current_steps = 0;
     this->current_degrees = 0;
 
@@ -131,7 +133,10 @@ void Rotor::move_motor(float degrees)
         return;
     }
 
-    this->target_steps = (int)degrees * this->pulses_per_degree;
+    DEBUG_PRINT("Moving to: ");
+    DEBUG_PRINTLN(degrees);
+
+    this->target_steps = (int)(degrees * this->pulses_per_degree);
     DEBUG_PRINTLN(this->target_steps);
 }
 
@@ -148,5 +153,5 @@ void Rotor::move_motor(int steps)
 
 float Rotor::get_current_position()
 {
-    return this->current_degrees + this->offset;
+    return (this->current_steps / this->pulses_per_degree) + this->offset;
 }
