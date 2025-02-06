@@ -46,12 +46,17 @@ void Rotor::loop()
     if (!this->is_calibrated)
         return;
 
-    if (this->target_steps == this->current_steps || digitalRead(this->limit_switch_cw) == HIGH || digitalRead(this->limit_switch_ccw) == HIGH)
+    if (this->target_steps == this->current_steps || 
+        (digitalRead(this->limit_switch_cw) == HIGH &&
+        this->target_steps > this->current_steps) || 
+        (digitalRead(this->limit_switch_ccw) == HIGH && 
+        this->target_steps < this->current_steps))
     {
         digitalWrite(this->motor_cw, LOW);
         digitalWrite(this->motor_ccw, LOW);
         return;
     }
+
 
     this->direction = this->target_steps > this->current_steps;
     
@@ -74,6 +79,7 @@ void Rotor::calibrate()
 
     while (digitalRead(this->limit_switch_cw) == LOW)
     {
+        delay(10);
     }
 
     DEBUG_PRINTLN("Rotor to CW stop");
@@ -87,6 +93,7 @@ void Rotor::calibrate()
 
     while (digitalRead(this->limit_switch_ccw) == LOW)
     {
+        delay(10);
     }
 
     DEBUG_PRINTLN("Rotor to CCW stop");
@@ -95,8 +102,13 @@ void Rotor::calibrate()
     digitalWrite(this->motor_ccw, LOW);
     
     this->pulses_per_degree = this->current_steps / this->max_degrees;
+    this->current_steps = 0;
+    this->current_degrees = 0;
+
+    this->is_calibrated = true;
+
     DEBUG_PRINT("Pulses/Degree: ");
-    DEBUG_PRINTLN(this->current_steps);
+    DEBUG_PRINTLN(this->pulses_per_degree);
 }
 
 void Rotor::set_range(float degrees)
@@ -120,6 +132,7 @@ void Rotor::move_motor(float degrees)
     }
 
     this->target_steps = (int)degrees * this->pulses_per_degree;
+    DEBUG_PRINTLN(this->target_steps);
 }
 
 void Rotor::move_motor(int steps)
