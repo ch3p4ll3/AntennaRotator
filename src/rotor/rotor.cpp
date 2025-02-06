@@ -111,6 +111,8 @@ void Rotor::set_offset(float degrees)
 
 void Rotor::move_motor(float degrees)
 {
+    degrees = degrees - this->offset;
+
     if (degrees > this->max_degrees || degrees < 0)
     {
         DEBUG_PRINTLN("Out of range!");
@@ -133,5 +135,5 @@ void Rotor::move_motor(int steps)
 
 float Rotor::get_current_position()
 {
-    return this->current_degrees;
+    return this->current_degrees + this->offset;
 }
