@@ -3,6 +3,11 @@
 #pragma once
 
 
+struct StoredData {
+    int current_steps;
+};
+
+
 class Rotor
 {
 private:
@@ -11,6 +16,8 @@ private:
     int limit_switch_cw;
     int limit_switch_ccw;
     int encoder_pin;
+
+    int eeprom_index = 0;
 
     volatile bool direction = true; // true = cw
     float max_degrees = 360;
@@ -23,6 +30,8 @@ private:
     float offset = 0;
 
     bool is_calibrated = false;
+
+    void store_data();
 
 public:
     Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw);

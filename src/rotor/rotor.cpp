@@ -1,3 +1,5 @@
+#include <EEPROM.h>
+
 #include "Arduino.h"
 #include "rotor.h"
 
@@ -29,6 +31,20 @@ Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int li
     this->motor_cw = motor_direction_pin;
     this->limit_switch_cw = limit_switch_cw;
     this->limit_switch_ccw = limit_switch_ccw;
+
+    do
+    {
+        byte magic = EEPROM.read(this->eeprom_index);   // iterate to find a free memory address
+
+        if (magic == 0xAA){  // memory not free
+            this->eeprom_index += sizeof(StoredData) + 2;
+        }
+        else {
+            break;
+        }
+    } while (true);
+
+    EEPROM.write(this->eeprom_index, 0xAA);
 }
 
 void Rotor::begin()
@@ -111,6 +127,14 @@ void Rotor::calibrate()
 
     DEBUG_PRINT("Pulses/Degree: ");
     DEBUG_PRINTLN(this->pulses_per_degree);
+
+    StoredData d;
+
+    EEPROM.get(this->eeprom_index + 1, d);
+
+    if (d.current_steps){
+        this->move_motor(d.current_steps);
+    }
 }
 
 void Rotor::set_range(float degrees)
@@ -153,5 +177,14 @@ void Rotor::move_motor(int steps)
 
 float Rotor::get_current_position()
 {
+    this->store_data();
     return (this->current_steps / this->pulses_per_degree) + this->offset;
+}
+
+void Rotor::store_data(){
+    StoredData d;
+
+    d.current_steps = this->current_steps;
+
+    EEPROM.put(this->eeprom_index + 1, d);
 }
