@@ -14,7 +14,7 @@ private:
 
     volatile bool direction = true; // true = cw
     float max_degrees = 360;
-    float pulses_per_degree = 4; // to calibrate
+    float steps_per_degree = 4; // to calibrate
 
     volatile int target_steps = 0;
     volatile int current_steps = 0;

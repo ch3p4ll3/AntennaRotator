@@ -4,19 +4,18 @@
 #define DEBUG
 
 #ifdef DEBUG
-#define DEBUG_PRINT(x) Serial.print(x)
-#define DEBUG_PRINTLN(x) Serial.println(x)
+    #define DEBUG_PRINT(x) Serial.print(x)
+    #define DEBUG_PRINTLN(x) Serial.println(x)
 #else
-#define DEBUG_PRINT(x)
-#define DEBUG_PRINTLN(x)
+    #define DEBUG_PRINT(x)
+    #define DEBUG_PRINTLN(x)
 #endif
 
-
-void IRAM_ATTR Rotor::isrHandler(void *arg) {
+void IRAM_ATTR Rotor::isrHandler(void *arg)
+{
     Rotor *self = static_cast<Rotor *>(arg);
     self->encoderISR();
 }
-
 
 void IRAM_ATTR Rotor::encoderISR()
 {
@@ -55,26 +54,35 @@ void Rotor::loop()
     if (!this->is_calibrated)
         return;
 
-    if (this->target_steps == this->current_steps || 
+    if (this->target_steps == this->current_steps ||
         (digitalRead(this->limit_switch_cw) == HIGH &&
-        this->target_steps > this->current_steps) || 
-        (digitalRead(this->limit_switch_ccw) == HIGH && 
-        this->target_steps < this->current_steps))
+         this->target_steps > this->current_steps) ||
+        (digitalRead(this->limit_switch_ccw) == HIGH &&
+         this->target_steps < this->current_steps))
     {
         digitalWrite(this->motor_cw, LOW);
         digitalWrite(this->motor_ccw, LOW);
 
+        if (digitalRead(this->limit_switch_cw) == HIGH){
+            this->current_steps = this->max_degrees * this->steps_per_degree;
+        }
+
+        if (digitalRead(this->limit_switch_ccw) == HIGH){
+            this->current_steps = 0;
+        }
+
         return;
     }
 
-
     this->direction = this->target_steps > this->current_steps;
-    
-    if (this->direction){
+
+    if (this->direction)
+    {
         digitalWrite(this->motor_cw, HIGH);
         digitalWrite(this->motor_ccw, LOW);
     }
-    else {
+    else
+    {
         digitalWrite(this->motor_cw, LOW);
         digitalWrite(this->motor_ccw, HIGH);
     }
@@ -113,15 +121,15 @@ void Rotor::calibrate()
     digitalWrite(this->motor_ccw, LOW);
 
     DEBUG_PRINTLN(this->current_steps);
-    
-    this->pulses_per_degree = abs(this->current_steps) / this->max_degrees;
+
+    this->steps_per_degree = abs(this->current_steps) / this->max_degrees;
     this->current_steps = 0;
     this->current_degrees = 0;
 
     this->is_calibrated = true;
 
     DEBUG_PRINT("Pulses/Degree: ");
-    DEBUG_PRINTLN(this->pulses_per_degree);
+    DEBUG_PRINTLN(this->steps_per_degree);
 }
 
 void Rotor::set_range(float degrees)
@@ -147,13 +155,13 @@ void Rotor::move_motor(float degrees)
     DEBUG_PRINT("Moving to: ");
     DEBUG_PRINTLN(degrees);
 
-    this->target_steps = (int)(degrees * this->pulses_per_degree);
+    this->target_steps = (int)(degrees * this->steps_per_degree);
     DEBUG_PRINTLN(this->target_steps);
 }
 
 void Rotor::move_motor(int steps)
 {
-    if (steps > this->max_degrees * this->pulses_per_degree || steps < 0)
+    if (steps > this->max_degrees * this->steps_per_degree || steps < 0)
     {
         DEBUG_PRINTLN("Out of range!");
         return;
@@ -164,5 +172,5 @@ void Rotor::move_motor(int steps)
 
 float Rotor::get_current_position()
 {
-    return (this->current_steps / this->pulses_per_degree) + this->offset;
+    return (this->current_steps / this->steps_per_degree) + this->offset;
 }

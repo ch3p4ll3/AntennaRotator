@@ -1,7 +1,7 @@
 #include "Arduino.h"
 #include "rotator.h"
 
-Rotator::Rotator(Rotor *azimuth=nullptr, Rotor *elevation=nullptr)
+Rotator::Rotator(Rotor *azimuth = nullptr, Rotor *elevation = nullptr)
 {
     this->azimuth = azimuth;
     this->elevation = elevation;
@@ -61,11 +61,12 @@ void Rotator::move_motor(int azimuth_steps, int elevation_steps)
         this->elevation->move_motor(elevation_steps);
 }
 
-void Rotator::set_offset(float azimuth_degrees, float elevation_degrees){
+void Rotator::set_offset(float azimuth_degrees, float elevation_degrees)
+{
     if (this->azimuth)
         this->azimuth->set_offset(azimuth_degrees);
 
-    if(this->elevation)
+    if (this->elevation)
         this->elevation->set_offset(elevation_degrees);
 }
 
