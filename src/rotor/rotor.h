@@ -24,8 +24,10 @@ private:
 
     bool is_calibrated = false;
 
+    static void IRAM_ATTR isrHandler(void *arg);
+
 public:
-    Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw);
+    Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw, int encoder_pin);
     void begin();
     void loop();
     void calibrate();

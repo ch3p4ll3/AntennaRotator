@@ -8,14 +8,12 @@
 #include "Arduino.h"
 
 
-Rotor azimuth(MOTOR_CW, MOTOR_CCW, LIMIT_CW, LIMIT_CCW);
+Rotor azimuth(MOTOR_CW, MOTOR_CCW, LIMIT_CW, LIMIT_CCW, ENCODER);
 Rotator rotator(&azimuth, nullptr);
 
 // function definition
 void connect_to_wifi();
 void init_server();
-void coreTask( void * pvParameters );
-void IRAM_ATTR azimuth_encoderISR();
 
 volatile bool aziumuth_encoder = false;
 
@@ -91,19 +89,6 @@ void setup()
 {
     Serial.begin(115200);
 
-    pinMode(ENCODER, INPUT);
-    attachInterrupt(digitalPinToInterrupt(ENCODER), azimuth_encoderISR, RISING);
-
-    xTaskCreatePinnedToCore(
-        coreTask,   /* Function to implement the task */
-        "coreTask", /* Name of the task */
-        10000,      /* Stack size in words */
-        NULL,       /* Task input parameter */
-        0,          /* Priority of the task */
-        NULL,       /* Task handle. */
-        0
-    );  /* Core where the task should run */
-
     rotator.begin();
     rotator.set_range(130, 0);
 
@@ -115,20 +100,6 @@ void setup()
 void loop()
 {
     rotator.loop();
-}
-
-void coreTask( void * pvParameters ){
-    while (true){
-        if (aziumuth_encoder){
-            azimuth.encoderISR();
-            aziumuth_encoder = false;
-        }
-        delay(1);
-    }
-}
-
-void IRAM_ATTR azimuth_encoderISR(){
-    aziumuth_encoder = true;
 }
 
 void init_server()

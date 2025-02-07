@@ -11,7 +11,14 @@
 #define DEBUG_PRINTLN(x)
 #endif
 
-void Rotor::encoderISR()
+
+void IRAM_ATTR Rotor::isrHandler(void *arg) {
+    Rotor *self = static_cast<Rotor *>(arg);
+    self->encoderISR();
+}
+
+
+void IRAM_ATTR Rotor::encoderISR()
 {
     if (this->direction)
     {
@@ -23,12 +30,13 @@ void Rotor::encoderISR()
     }
 }
 
-Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw)
+Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw, int encoder_pin)
 {
     this->motor_ccw = motor_pin;
     this->motor_cw = motor_direction_pin;
     this->limit_switch_cw = limit_switch_cw;
     this->limit_switch_ccw = limit_switch_ccw;
+    this->encoder_pin = encoder_pin;
 }
 
 void Rotor::begin()
@@ -37,6 +45,9 @@ void Rotor::begin()
     pinMode(this->motor_cw, OUTPUT);
     pinMode(this->limit_switch_cw, INPUT_PULLUP);
     pinMode(this->limit_switch_ccw, INPUT_PULLUP);
+
+    pinMode(this->encoder_pin, INPUT);
+    attachInterruptArg(digitalPinToInterrupt(this->encoder_pin), Rotor::isrHandler, this, FALLING);
 }
 
 void Rotor::loop()
