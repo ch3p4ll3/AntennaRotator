@@ -31,6 +31,8 @@ Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int li
     this->limit_switch_ccw = limit_switch_ccw;
 }
 
+#pragma region public methods
+
 void Rotor::begin()
 {
     pinMode(this->motor_ccw, OUTPUT);
@@ -50,31 +52,35 @@ void Rotor::loop()
         (digitalRead(this->limit_switch_ccw) == HIGH && 
         this->target_steps < this->current_steps))
     {
-        digitalWrite(this->motor_cw, LOW);
-        digitalWrite(this->motor_ccw, LOW);
+        this->stop_motor();
 
         return;
     }
 
-
     this->direction = this->target_steps > this->current_steps;
-    
-    if (this->direction){
-        digitalWrite(this->motor_cw, HIGH);
-        digitalWrite(this->motor_ccw, LOW);
+
+    float degrees_left = abs(this->target_steps - this->current_steps) * this->pulses_per_degree;
+    int speed = 255;
+
+    if (degrees_left <= 30){
+        speed = 255 * 0.75;
     }
-    else {
-        digitalWrite(this->motor_cw, LOW);
-        digitalWrite(this->motor_ccw, HIGH);
+    else if (degrees_left <= 20){
+        speed = 255 * 0.60;
     }
+
+    else if (degrees_left <= 10){
+        speed = 255 * 0.50;
+    }
+
+    this->rotate_motor(static_cast<bool>(this->direction), speed);
 }
 
 void Rotor::calibrate()
 {
     DEBUG_PRINTLN("CALIBRATING...");
 
-    digitalWrite(this->motor_cw, HIGH);
-    digitalWrite(this->motor_ccw, LOW);
+    this->rotate_motor(true);
 
     while (digitalRead(this->limit_switch_cw) == LOW)
     {
@@ -83,13 +89,11 @@ void Rotor::calibrate()
 
     DEBUG_PRINTLN("Rotor to CW stop");
 
-    digitalWrite(this->motor_cw, LOW);
-    digitalWrite(this->motor_ccw, LOW);
+    this->stop_motor();
 
     this->current_steps = 0;
 
-    digitalWrite(this->motor_cw, LOW);
-    digitalWrite(this->motor_ccw, HIGH);
+    this->rotate_motor(false);
 
     while (digitalRead(this->limit_switch_ccw) == LOW)
     {
@@ -98,8 +102,7 @@ void Rotor::calibrate()
 
     DEBUG_PRINTLN("Rotor to CCW stop");
 
-    digitalWrite(this->motor_cw, LOW);
-    digitalWrite(this->motor_ccw, LOW);
+    this->stop_motor();
 
     DEBUG_PRINTLN(this->current_steps);
     
@@ -155,3 +158,26 @@ float Rotor::get_current_position()
 {
     return (this->current_steps / this->pulses_per_degree) + this->offset;
 }
+
+#pragma endregion
+
+#pragma region private methods
+
+void Rotor::stop_motor(){
+    analogWrite(this->motor_cw, 0);
+    analogWrite(this->motor_ccw, 0);
+}
+
+void Rotor::rotate_motor(bool direction, int speed){
+    if (this->direction){
+        analogWrite(this->motor_cw, speed);
+        analogWrite(this->motor_ccw, 0);
+    }
+
+    else {
+        analogWrite(this->motor_cw, 0);
+        analogWrite(this->motor_ccw, speed);
+    }
+}
+
+#pragma endregion

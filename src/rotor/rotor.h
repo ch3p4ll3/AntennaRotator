@@ -24,6 +24,9 @@ private:
 
     bool is_calibrated = false;
 
+    void stop_motor();
+    void rotate_motor(bool direction, int speed=255);
+
 public:
     Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw);
     void begin();
