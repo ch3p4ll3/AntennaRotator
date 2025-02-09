@@ -24,5 +24,7 @@ class Rotator{
         void move_motor(float azimuth_degrees, float elevation_degrees);
         void move_motor_by_steps(int azimuth_steps, int elevation_steps);
 
+        void stop_motors();
+
         Position get_current_position();
 };

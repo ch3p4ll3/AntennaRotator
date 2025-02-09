@@ -61,6 +61,7 @@ static void handleData(void *arg, AsyncClient *client, void *data, size_t len)
 
     else if (decodedData.startsWith("S"))
     {
+        rotator.stop_motors();
         toSendString = "RPRT 0\n";
     }
 

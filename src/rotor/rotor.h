@@ -24,7 +24,6 @@ private:
 
     bool is_calibrated = false;
 
-    void stop_motor();
     void rotate_motor(bool direction, int speed=255);
 
     static void IRAM_ATTR isrHandler(void *arg);
@@ -40,5 +39,6 @@ public:
 
     void move_motor(float degrees);
     void move_motor_by_steps(int steps);
+    void stop_motor();
     float get_current_position();
 };

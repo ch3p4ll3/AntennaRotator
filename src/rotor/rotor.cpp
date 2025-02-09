@@ -73,7 +73,7 @@ void Rotor::loop()
 
     this->direction = this->target_steps > this->current_steps;
 
-    float degrees_left = abs(this->target_steps - this->current_steps) * this->steps_per_degree;
+    float degrees_left = abs(this->current_steps - this->target_steps) / this->steps_per_degree;
     int speed = 255;
 
     if (degrees_left <= 30){
@@ -86,6 +86,8 @@ void Rotor::loop()
     else if (degrees_left <= 10){
         speed = 255 * 0.50;
     }
+    
+    DEBUG_PRINTLN(degrees_left);
 
     this->rotate_motor(static_cast<bool>(this->direction), speed);
 }
@@ -181,11 +183,11 @@ void Rotor::stop_motor(){
     analogWrite(this->motor_cw, 0);
     analogWrite(this->motor_ccw, 0);
 
-    this->target_steps = this->current_steps;
+    //this->target_steps = this->current_steps;
 }
 
 void Rotor::rotate_motor(bool direction, int speed){
-    if (this->direction){
+    if (direction){
         analogWrite(this->motor_cw, speed);
         analogWrite(this->motor_ccw, 0);
     }

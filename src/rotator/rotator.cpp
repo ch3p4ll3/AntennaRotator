@@ -86,3 +86,12 @@ Position Rotator::get_current_position()
 
     return p;
 }
+
+
+void Rotator::stop_motors(){
+    if (this->azimuth)
+        this->azimuth->stop_motor();
+
+    if (this->elevation)
+        this->elevation->stop_motor();
+}
