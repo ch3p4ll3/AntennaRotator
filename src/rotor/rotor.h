@@ -14,7 +14,7 @@ private:
 
     volatile bool direction = true; // true = cw
     float max_degrees = 360;
-    float steps_per_degree = 120; // to calibrate
+    float steps_per_degree = 100; // to calibrate
 
     volatile int target_steps = 0;
     volatile int current_steps = 0;
@@ -36,8 +36,6 @@ public:
     void set_offset(float degrees);
 
     void move_motor(float degrees);
-    void move_motor(int steps);
+    void move_motor_by_steps(int steps);
     float get_current_position();
-
-    volatile void IRAM_ATTR encoderISR();
 };

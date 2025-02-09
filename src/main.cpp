@@ -21,7 +21,6 @@
 #endif
 
 
-
 Rotor azimuth(MOTOR_CW, MOTOR_CCW, LIMIT_CW, LIMIT_CCW, ENCODER);
 Rotator rotator(&azimuth, nullptr);
 

@@ -14,18 +14,14 @@
 void IRAM_ATTR Rotor::isrHandler(void *arg)
 {
     Rotor *self = static_cast<Rotor *>(arg);
-    self->encoderISR();
-}
 
-void volatile IRAM_ATTR Rotor::encoderISR()
-{
-    if (this->direction)
+    if (self->direction)
     {
-        this->current_steps++;
+        self->current_steps++;
     }
     else
     {
-        this->current_steps--;
+        self->current_steps--;
     }
 }
 
@@ -92,18 +88,18 @@ void Rotor::calibrate()
 {
     DEBUG_PRINTLN("CALIBRATING...");
 
-    // digitalWrite(this->motor_cw, HIGH);
-    // digitalWrite(this->motor_ccw, LOW);
+    digitalWrite(this->motor_cw, HIGH);
+    digitalWrite(this->motor_ccw, LOW);
 
-    // while (digitalRead(this->limit_switch_cw) == LOW)
-    // {
-    //     delay(10);
-    // }
+    while (digitalRead(this->limit_switch_cw) == LOW)
+    {
+        delay(10);
+    }
 
-    // DEBUG_PRINTLN("Rotor to CW stop");
+    DEBUG_PRINTLN("Rotor to CW stop");
 
-    // digitalWrite(this->motor_cw, LOW);
-    // digitalWrite(this->motor_ccw, LOW);
+    digitalWrite(this->motor_cw, LOW);
+    digitalWrite(this->motor_ccw, LOW);
 
     this->current_steps = 0;
 
@@ -124,7 +120,7 @@ void Rotor::calibrate()
 
     DEBUG_PRINTLN(this->current_steps);
 
-    //this->steps_per_degree = abs(this->current_steps) / this->max_degrees;
+    this->steps_per_degree = abs(this->current_steps) / this->max_degrees;
     this->current_steps = 0;
     this->current_degrees = 0;
 
@@ -161,7 +157,7 @@ void Rotor::move_motor(float degrees)
     DEBUG_PRINTLN(this->target_steps);
 }
 
-void Rotor::move_motor(int steps)
+void Rotor::move_motor_by_steps(int steps)
 {
     if (steps > this->max_degrees * this->steps_per_degree || steps < 0)
     {
@@ -169,7 +165,7 @@ void Rotor::move_motor(int steps)
         return;
     }
 
-    this->target_steps = steps;
+    this->target_steps = steps + this->target_steps;
 }
 
 float Rotor::get_current_position()
