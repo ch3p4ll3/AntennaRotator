@@ -16,9 +16,11 @@ private:
     float max_degrees = 360;
     float steps_per_degree = 100; // to calibrate
 
-    volatile int target_steps = 0;
-    volatile int current_steps = 0;
+    volatile long target_steps = 0;
+    volatile long current_steps = 0;
     volatile float current_degrees = 0;
+
+    volatile unsigned long lastPulseTime = 0;
 
     float offset = 0;
 

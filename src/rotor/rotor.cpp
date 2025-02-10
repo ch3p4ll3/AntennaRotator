@@ -15,6 +15,10 @@ void IRAM_ATTR Rotor::isrHandler(void *arg)
 {
     Rotor *self = static_cast<Rotor *>(arg);
 
+    unsigned long now = micros();
+    if ((now - self->lastPulseTime) < 1000) return; // ignore bounces within 1000µs
+    self->lastPulseTime = now;
+
     if (self->direction)
     {
         self->current_steps++;
@@ -107,6 +111,8 @@ void Rotor::calibrate()
 
     this->stop_motor();
 
+    delay(250);  // wait for motor to completely stop
+
     this->current_steps = 0;
 
     this->rotate_motor(false);
@@ -119,6 +125,8 @@ void Rotor::calibrate()
     DEBUG_PRINTLN("Rotor to CCW stop");
 
     this->stop_motor();
+
+    delay(250);  // wait for motor to completely stop
 
     DEBUG_PRINTLN(this->current_steps);
 
@@ -161,7 +169,7 @@ void Rotor::move_motor(float degrees)
 
 void Rotor::move_motor_by_steps(int steps)
 {
-    if (steps > this->max_degrees * this->steps_per_degree || steps < 0)
+    if (steps + this->target_steps > this->max_degrees * this->steps_per_degree || steps + this->target_steps < 0)
     {
         DEBUG_PRINTLN("Out of range!");
         return;

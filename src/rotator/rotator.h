@@ -13,7 +13,7 @@ class Rotator{
         Rotor* elevation = nullptr;
     
     public:
-        Rotator(Rotor* azimuth, Rotor* elevation);
+        Rotator(Rotor *azimuth = nullptr, Rotor *elevation = nullptr);
         void begin();
         void loop();
         void calibrate();

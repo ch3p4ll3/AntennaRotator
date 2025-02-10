@@ -1,7 +1,7 @@
 #include "Arduino.h"
 #include "rotator.h"
 
-Rotator::Rotator(Rotor *azimuth = nullptr, Rotor *elevation = nullptr)
+Rotator::Rotator(Rotor *azimuth, Rotor *elevation)
 {
     this->azimuth = azimuth;
     this->elevation = elevation;
