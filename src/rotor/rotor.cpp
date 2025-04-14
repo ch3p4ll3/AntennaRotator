@@ -1,4 +1,5 @@
 #include "Arduino.h"
+#include <PID_v1.h>
 #include "rotor.h"
 
 #define DEBUG
@@ -34,7 +35,7 @@ Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int li
     this->encoder_pin = encoder_pin;
 }
 
-void Rotor::begin()
+void Rotor::begin(double kp=NULL, double ki=NULL, double kd=NULL)
 {
     pinMode(this->motor_ccw, OUTPUT);
     pinMode(this->motor_cw, OUTPUT);
@@ -43,6 +44,12 @@ void Rotor::begin()
 
     pinMode(this->encoder_pin, INPUT);
     attachInterruptArg(digitalPinToInterrupt(this->encoder_pin), Rotor::isrHandler, this, FALLING);
+
+    this->pid.SetMode(AUTOMATIC);
+    this->pid.SetOutputLimits(-255, 255);  // For bidirectional control
+
+    if (kp && ki && kd)
+        this->pid.SetTunings(kp, ki, kd);
 }
 
 void Rotor::loop()
@@ -56,8 +63,7 @@ void Rotor::loop()
         (digitalRead(this->limit_switch_ccw) == HIGH &&
          this->target_steps < this->current_steps))
     {
-        digitalWrite(this->motor_cw, LOW);
-        digitalWrite(this->motor_ccw, LOW);
+        controlMotor(0);
 
         if (digitalRead(this->limit_switch_cw) == HIGH){
             this->current_steps = this->max_degrees * this->steps_per_degree;
@@ -70,26 +76,21 @@ void Rotor::loop()
         return;
     }
 
+    this->input = (double)this->current_steps;
+    this->setpoint = (double)this->target_steps;
+
+    this->pid.Compute();  // Update output
+
     this->direction = this->target_steps > this->current_steps;
 
-    if (this->direction)
-    {
-        digitalWrite(this->motor_cw, HIGH);
-        digitalWrite(this->motor_ccw, LOW);
-    }
-    else
-    {
-        digitalWrite(this->motor_cw, LOW);
-        digitalWrite(this->motor_ccw, HIGH);
-    }
+    controlMotor(this->output);
 }
 
 void Rotor::calibrate()
 {
     DEBUG_PRINTLN("CALIBRATING...");
 
-    digitalWrite(this->motor_cw, HIGH);
-    digitalWrite(this->motor_ccw, LOW);
+    controlMotor(255);
 
     while (digitalRead(this->limit_switch_cw) == LOW)
     {
@@ -98,13 +99,11 @@ void Rotor::calibrate()
 
     DEBUG_PRINTLN("Rotor to CW stop");
 
-    digitalWrite(this->motor_cw, LOW);
-    digitalWrite(this->motor_ccw, LOW);
+    controlMotor(0);
 
     this->current_steps = 0;
 
-    digitalWrite(this->motor_cw, LOW);
-    digitalWrite(this->motor_ccw, HIGH);
+    controlMotor(-255);
 
     DEBUG_PRINTLN(digitalRead(this->limit_switch_ccw));
 
@@ -115,8 +114,7 @@ void Rotor::calibrate()
 
     DEBUG_PRINTLN("Rotor to CCW stop");
 
-    digitalWrite(this->motor_cw, LOW);
-    digitalWrite(this->motor_ccw, LOW);
+    controlMotor(0);
 
     DEBUG_PRINTLN(this->current_steps);
 
@@ -171,4 +169,17 @@ void Rotor::move_motor_by_steps(int steps)
 float Rotor::get_current_position()
 {
     return (this->current_steps / this->steps_per_degree) + this->offset;
+}
+
+void Rotor::controlMotor(int pwmVal){
+    int pwm = abs((int)pwmVal);
+    pwm = constrain(pwm, 0, 255);
+
+    if (pwmVal > 0) {
+        analogWrite(this->motor_cw, pwm);
+        digitalWrite(this->motor_ccw, LOW);
+    } else {
+        digitalWrite(this->motor_cw, LOW);
+        analogWrite(this->motor_ccw, pwm);
+    }
 }

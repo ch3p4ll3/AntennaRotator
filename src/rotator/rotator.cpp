@@ -7,13 +7,13 @@ Rotator::Rotator(Rotor *azimuth = nullptr, Rotor *elevation = nullptr)
     this->elevation = elevation;
 }
 
-void Rotator::begin()
+void Rotator::begin(double az_kp=NULL, double az_ki=NULL, double az_kd=NULL, double el_kp=NULL, double el_ki=NULL, double el_kd=NULL)
 {
     if (this->azimuth)
-        this->azimuth->begin();
+        this->azimuth->begin(az_kp, az_ki, az_kd);
 
     if (this->elevation)
-        this->elevation->begin();
+        this->elevation->begin(el_kp, el_ki, el_kd);
 }
 
 void Rotator::calibrate()

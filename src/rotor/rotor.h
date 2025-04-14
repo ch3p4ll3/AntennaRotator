@@ -1,4 +1,5 @@
 #include "Arduino.h"
+#include <PID_v1.h>
 
 #pragma once
 
@@ -26,9 +27,15 @@ private:
 
     static void IRAM_ATTR isrHandler(void *arg);
 
+    double input = 0;
+    double output = 0;
+    double setpoint = 0;
+    PID pid = PID(&input, &output, &setpoint, 2.0, 0.5, 0.1, DIRECT);
+    void controlMotor(int pwmVal);
+
 public:
     Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw, int encoder_pin);
-    void begin();
+    void begin(double kp, double ki, double kd);
     void loop();
     void calibrate();
 

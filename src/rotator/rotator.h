@@ -14,7 +14,7 @@ class Rotator{
     
     public:
         Rotator(Rotor* azimuth, Rotor* elevation);
-        void begin();
+        void begin(double az_kp, double az_ki, double az_kd, double el_kp, double el_ki, double el_kd);
         void loop();
         void calibrate();
 

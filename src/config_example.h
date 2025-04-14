@@ -12,3 +12,8 @@
 
 //tcp server settings
 #define TCP_SERVER_PORT 7753
+
+// PID gain
+#define KP 2.0
+#define KI 0.5
+#define KD 0.1

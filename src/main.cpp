@@ -100,7 +100,7 @@ void setup()
 {
     Serial.begin(115200);
 
-    rotator.begin();
+    rotator.begin(KP, KI, KD, NULL, NULL, NULL);
     rotator.set_range(130, 0);
 
     rotator.calibrate();
