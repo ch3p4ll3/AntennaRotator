@@ -21,6 +21,8 @@ private:
     volatile int current_steps = 0;
     volatile float current_degrees = 0;
 
+    volatile unsigned long lastPulseTime = 0;
+
     float offset = 0;
 
     bool is_calibrated = false;

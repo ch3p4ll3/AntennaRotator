@@ -16,6 +16,10 @@ void IRAM_ATTR Rotor::isrHandler(void *arg)
 {
     Rotor *self = static_cast<Rotor *>(arg);
 
+    unsigned long now = micros();
+    if ((now - self->lastPulseTime) < 1000) return; // ignore bounces within 1000µs
+    self->lastPulseTime = now;
+
     if (self->direction)
     {
         self->current_steps++;
