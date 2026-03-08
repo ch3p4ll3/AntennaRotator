@@ -42,7 +42,7 @@ static void handleData(void *arg, AsyncClient *client, void *data, size_t len)
     {
         Position p = rotator.get_current_position();
         //DEBUG_PRINTLN("Get current position");
-        toSendString = toSendString = String(p.azimuth, 1) + "\n" + String(p.elevation, 1) + "\n";  // 1 decimal point;
+        toSendString = String(p.azimuth, 1) + "\n" + String(p.elevation, 1) + "\n";  // 1 decimal point;
     }
 
     else if (decodedData.startsWith("P"))
@@ -61,6 +61,7 @@ static void handleData(void *arg, AsyncClient *client, void *data, size_t len)
 
     else if (decodedData.startsWith("S"))
     {
+        rotator.stop_motor();
         toSendString = "RPRT 0\n";
     }
 

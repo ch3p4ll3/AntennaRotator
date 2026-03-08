@@ -23,6 +23,7 @@ class Rotator{
         void set_range(float azimuth_max_degrees, float elevation_max_degrees);
         void move_motor(float azimuth_degrees, float elevation_degrees);
         void move_motor_by_steps(int azimuth_steps, int elevation_steps);
+        void stop_motor();
 
         Position get_current_position();
 };

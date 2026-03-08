@@ -61,6 +61,15 @@ void Rotator::move_motor_by_steps(int azimuth_steps, int elevation_steps)
         this->elevation->move_motor_by_steps(elevation_steps);
 }
 
+void Rotator::stop_motor()
+{
+    if (this->azimuth)
+        this->azimuth->stop_motor();
+
+    if (this->elevation)
+        this->elevation->stop_motor();
+}
+
 void Rotator::set_offset(float azimuth_degrees, float elevation_degrees)
 {
     if (this->azimuth)

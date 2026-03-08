@@ -5,6 +5,9 @@
 #define MOTOR_CW 7      // Motor CW
 #define MOTOR_CCW 9      // Motor CCW
 
+#define MIN_PWM 50
+#define DEADBAND_STEPS 5
+
 
 // wifi settings
 #define WIFI_SSID ""

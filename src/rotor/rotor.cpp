@@ -1,6 +1,7 @@
 #include "Arduino.h"
 #include <PID_v1.h>
 #include "rotor.h"
+#include "config.h"
 
 #define DEBUG
 
@@ -39,7 +40,7 @@ Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int li
     this->encoder_pin = encoder_pin;
 }
 
-void Rotor::begin(double kp=NULL, double ki=NULL, double kd=NULL)
+void Rotor::begin(double kp=NAN, double ki=NAN, double kd=NAN)
 {
     pinMode(this->motor_ccw, OUTPUT);
     pinMode(this->motor_cw, OUTPUT);
@@ -52,7 +53,7 @@ void Rotor::begin(double kp=NULL, double ki=NULL, double kd=NULL)
     this->pid.SetMode(AUTOMATIC);
     this->pid.SetOutputLimits(-255, 255);  // For bidirectional control
 
-    if (kp && ki && kd)
+    if (!isnan(kp) && !isnan(ki) && !isnan(kd))
         this->pid.SetTunings(kp, ki, kd);
 }
 
@@ -61,31 +62,38 @@ void Rotor::loop()
     if (!this->is_calibrated)
         return;
 
-    if (this->target_steps == this->current_steps ||
-        (digitalRead(this->limit_switch_cw) == HIGH &&
-         this->target_steps > this->current_steps) ||
-        (digitalRead(this->limit_switch_ccw) == HIGH &&
-         this->target_steps < this->current_steps))
+    bool at_cw  = digitalRead(this->limit_switch_cw)  == HIGH;
+    bool at_ccw = digitalRead(this->limit_switch_ccw) == HIGH;
+
+    if ((at_cw && this->target_steps > this->current_steps) ||
+        (at_ccw && this->target_steps < this->current_steps))
     {
         controlMotor(0);
+        if (at_cw)  this->current_steps = this->max_degrees * this->steps_per_degree;
+        if (at_ccw) this->current_steps = 0;
 
-        if (digitalRead(this->limit_switch_cw) == HIGH){
-            this->current_steps = this->max_degrees * this->steps_per_degree;
-        }
+        this->target_steps = this->current_steps;
 
-        if (digitalRead(this->limit_switch_ccw) == HIGH){
-            this->current_steps = 0;
-        }
+        // reset PID state to avoid integral windup
+        this->pid.SetMode(MANUAL);
+        this->pid.SetMode(AUTOMATIC);
+        return;
+    }
 
+    // Deadband
+    if (abs(this->target_steps - this->current_steps) <= DEADBAND_STEPS)
+    {
+        this->target_steps = this->current_steps;
+        controlMotor(0);
         return;
     }
 
     this->input = (double)this->current_steps;
     this->setpoint = (double)this->target_steps;
+    this->direction = this->target_steps > this->current_steps;
 
     this->pid.Compute();  // Update output
 
-    this->direction = this->target_steps > this->current_steps;
 
     controlMotor(this->output);
 }
@@ -94,11 +102,12 @@ void Rotor::calibrate()
 {
     DEBUG_PRINTLN("CALIBRATING...");
 
+    this->direction = true;
     controlMotor(255);
 
     while (digitalRead(this->limit_switch_cw) == LOW)
     {
-        delay(10);
+        delay(1);
     }
 
     DEBUG_PRINTLN("Rotor to CW stop");
@@ -107,24 +116,25 @@ void Rotor::calibrate()
 
     this->current_steps = 0;
 
+    this->direction = false;
     controlMotor(-255);
 
     DEBUG_PRINTLN(digitalRead(this->limit_switch_ccw));
 
     while (digitalRead(this->limit_switch_ccw) == LOW)
     {
-        delay(10);
+        delay(1);
     }
 
     DEBUG_PRINTLN("Rotor to CCW stop");
 
+    this->direction = true;
     controlMotor(0);
 
     DEBUG_PRINTLN(this->current_steps);
 
     this->steps_per_degree = abs(this->current_steps) / this->max_degrees;
     this->current_steps = 0;
-    this->current_degrees = 0;
 
     this->is_calibrated = true;
 
@@ -161,13 +171,14 @@ void Rotor::move_motor(float degrees)
 
 void Rotor::move_motor_by_steps(int steps)
 {
-    if (steps > this->max_degrees * this->steps_per_degree || steps < 0)
+    int32_t new_target = this->target_steps + steps;
+    if (new_target > this->max_degrees * this->steps_per_degree || new_target < 0)
     {
         DEBUG_PRINTLN("Out of range!");
         return;
     }
 
-    this->target_steps = steps + this->target_steps;
+    this->target_steps = new_target;
 }
 
 float Rotor::get_current_position()
@@ -177,13 +188,25 @@ float Rotor::get_current_position()
 
 void Rotor::controlMotor(int pwmVal){
     int pwm = abs((int)pwmVal);
+
+    if (pwm > 0 && pwm < MIN_PWM) pwm = MIN_PWM;
+
     pwm = constrain(pwm, 0, 255);
 
     if (pwmVal > 0) {
         analogWrite(this->motor_cw, pwm);
         digitalWrite(this->motor_ccw, LOW);
-    } else {
+    } else if (pwmVal < 0) {
         digitalWrite(this->motor_cw, LOW);
         analogWrite(this->motor_ccw, pwm);
+    } else {
+        digitalWrite(this->motor_cw, LOW);
+        digitalWrite(this->motor_ccw, LOW);
     }
+}
+
+void Rotor::stop_motor()
+{
+    this->target_steps = this->current_steps;
+    controlMotor(0);
 }
