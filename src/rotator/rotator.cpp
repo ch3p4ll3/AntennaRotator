@@ -7,7 +7,7 @@ Rotator::Rotator(Rotor *azimuth = nullptr, Rotor *elevation = nullptr)
     this->elevation = elevation;
 }
 
-void Rotator::begin(double az_kp=NULL, double az_ki=NULL, double az_kd=NULL, double el_kp=NULL, double el_ki=NULL, double el_kd=NULL)
+void Rotator::begin(double az_kp=NAN, double az_ki=NAN, double az_kd=NAN, double el_kp=NAN, double el_ki=NAN, double el_kd=NAN)
 {
     if (this->azimuth)
         this->azimuth->begin(az_kp, az_ki, az_kd);

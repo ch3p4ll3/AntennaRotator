@@ -5,16 +5,9 @@
 #define MOTOR_CW 7      // Motor CW
 #define MOTOR_CCW 9      // Motor CCW
 
+// deadband and minimum PWM
 #define MIN_PWM 50
 #define DEADBAND_STEPS 5
-
-
-// wifi settings
-#define WIFI_SSID ""
-#define WIFI_PASSWORD ""
-
-//tcp server settings
-#define TCP_SERVER_PORT 7753
 
 // PID gain
 #define KP 2.0

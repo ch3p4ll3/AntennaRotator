@@ -2,8 +2,9 @@
 #include "./rotor/rotor.h"
 #include "./rotator/rotator.h"
 
-#include <AsyncTCP.h>
-#include <WiFi.h>
+#include <easycomm-parser-types-ctors.h>
+#include <easycomm-parser.h>
+#include <easycomm-command-callback-handler.h>
 
 #include "Arduino.h"
 
@@ -21,121 +22,79 @@
 #endif
 
 
+EasycommCommandsCallback cb_handler;
+
 Rotor azimuth(MOTOR_CW, MOTOR_CCW, LIMIT_CW, LIMIT_CCW, ENCODER);
 Rotator rotator(&azimuth, nullptr);
 
-// function definition
-void connect_to_wifi();
-void init_server();
+TaskHandle_t SerialTaskHandle = NULL;
 
-volatile bool aziumuth_encoder = false;
-
-
-static void handleData(void *arg, AsyncClient *client, void *data, size_t len)
-{
-    DEBUG_PRINTF("\n data received from client %s \n", client->remoteIP().toString().c_str());
-
-    String decodedData = String((uint8_t *)data, len);
-    String toSendString;
-
-    if (decodedData.startsWith("p"))
-    {
-        Position p = rotator.get_current_position();
-        //DEBUG_PRINTLN("Get current position");
-        toSendString = String(p.azimuth, 1) + "\n" + String(p.elevation, 1) + "\n";  // 1 decimal point;
-    }
-
-    else if (decodedData.startsWith("P"))
-    {
-        //DEBUG_PRINTLN("Set position" + decodedData);
-        String numbers = decodedData.substring(2);
-        int indexOfSpace = numbers.indexOf(' ');
-
-        String azim = numbers.substring(0, indexOfSpace);
-        String elev = numbers.substring(indexOfSpace + 1);
-
-        rotator.move_motor(azim.toFloat(), elev.toFloat());
-
-        toSendString = "RPRT 0\n";
-    }
-
-    else if (decodedData.startsWith("S"))
-    {
-        rotator.stop_motor();
-        toSendString = "RPRT 0\n";
-    }
-
-    if (client->space() > strlen(toSendString.c_str()) && client->canSend())
-    {
-        client->add(toSendString.c_str(), strlen(toSendString.c_str()));
-        client->send();
+void SerialTask(void *parameter) {
+    for (;;) {
+        if (Serial2.available()) {
+            String line = Serial2.readStringUntil('\n');
+            line.trim();
+            DEBUG_PRINTF("RX: '%s'\n", line.c_str());
+            easycommHandleCommand(line.c_str(), &cb_handler, EasycommParserStandard2, nullptr);
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
-static void handleError(void *arg, AsyncClient *client, int8_t error)
-{
-    DEBUG_PRINTF("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
+
+void onAzimuth(const EasycommData *cmd, void *user_data) {
+    float targetAz = cmd->as.setAzimuth.azimuth;
+    rotator.move_motor(targetAz, 0);
 }
 
-static void handleDisconnect(void *arg, AsyncClient *client)
-{
-    DEBUG_PRINTF("\n client %s disconnected \n", client->remoteIP().toString().c_str());
+void onGetAzimuth(const EasycommData *cmd, void *user_data) {
+    Position p = rotator.get_current_position();
+
+    Serial2.print("AZ");
+    Serial2.print(p.azimuth, 1);
+    Serial2.print(" EL");
+    Serial2.println(p.elevation, 1);
 }
 
-static void handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
-{
-    DEBUG_PRINTF("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
-}
-
-static void handleNewClient(void *arg, AsyncClient *client)
-{
-    DEBUG_PRINTF("\n new client has been connected to server, ip: %s", client->remoteIP().toString().c_str());
-    // register events
-    client->onData(&handleData, NULL);
-    client->onError(&handleError, NULL);
-    client->onDisconnect(&handleDisconnect, NULL);
-    client->onTimeout(&handleTimeOut, NULL);
+void onStop(const EasycommData *cmd, void *user_data) {
+    // Call your rotator's stop method
+    rotator.stop_motor(); 
+    #ifdef DEBUG
+    DEBUG_PRINTLN("Stop command received");
+    #endif
 }
 
 void setup()
 {
-    Serial.begin(115200);
+    Serial.begin(9600);
+    Serial2.begin(9600);
+    Serial2.setTimeout(50);
 
-    rotator.begin(KP, KI, KD, NULL, NULL, NULL);
+    rotator.begin(KP, KI, KD, NAN, NAN, NAN);
     rotator.set_range(130, 0);
 
     rotator.calibrate();
 
-    init_server();
+    easycommCommandsCallback(&cb_handler, EasycommParserStandard2);
+
+    // Override registry with Azimuth, Get Azimuth, and Stop
+    cb_handler.registry[EasycommIdSetAzimuth] = onAzimuth;
+    cb_handler.registry[EasycommIdGetAzimuth] = onGetAzimuth;
+    cb_handler.registry[EasycommIdSingleLine] = onGetAzimuth;
+    cb_handler.registry[EasycommIdDoStopAzimuthMove] = onStop; // Standard EasyComm 'ST'
+
+    xTaskCreatePinnedToCore(
+        SerialTask,         // Task function
+        "SerialTask",       // Task name
+        10000,             // Stack size (bytes)
+        NULL,              // Parameters
+        1,                 // Priority
+        &SerialTaskHandle,  // Task handle
+        1                  // Core 1
+    );
 }
 
 void loop()
 {
     rotator.loop();
-}
-
-void init_server()
-{
-    connect_to_wifi();
-
-    AsyncServer *server = new AsyncServer(TCP_SERVER_PORT);
-    server->onClient(&handleNewClient, server);
-    server->begin();
-}
-
-void connect_to_wifi()
-{
-    WiFi.mode(WIFI_STA); // Optional
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    DEBUG_PRINTLN("\nConnecting");
-
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        DEBUG_PRINT(".");
-        delay(100);
-    }
-
-    DEBUG_PRINTLN("\nConnected to the WiFi network");
-    DEBUG_PRINT("Local ESP32 IP: ");
-    DEBUG_PRINTLN(WiFi.localIP());
 }

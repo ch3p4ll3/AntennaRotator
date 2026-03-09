@@ -31,10 +31,10 @@ void IRAM_ATTR Rotor::isrHandler(void *arg)
     }
 }
 
-Rotor::Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw, int encoder_pin)
+Rotor::Rotor(int motor_cw, int motor_ccw, int limit_switch_cw, int limit_switch_ccw, int encoder_pin)
 {
-    this->motor_ccw = motor_pin;
-    this->motor_cw = motor_direction_pin;
+    this->motor_cw = motor_cw;
+    this->motor_ccw = motor_ccw;
     this->limit_switch_cw = limit_switch_cw;
     this->limit_switch_ccw = limit_switch_ccw;
     this->encoder_pin = encoder_pin;
@@ -128,7 +128,6 @@ void Rotor::calibrate()
 
     DEBUG_PRINTLN("Rotor to CCW stop");
 
-    this->direction = true;
     controlMotor(0);
 
     DEBUG_PRINTLN(this->current_steps);
@@ -183,6 +182,7 @@ void Rotor::move_motor_by_steps(int steps)
 
 float Rotor::get_current_position()
 {
+    if (this->steps_per_degree == 0) return 0.0;
     return (this->current_steps / this->steps_per_degree) + this->offset;
 }
 
