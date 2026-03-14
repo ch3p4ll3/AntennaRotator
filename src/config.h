@@ -1,9 +1,11 @@
+#define DEBUG
+
 // Pin Definitions
-#define ENCODER 2          // Opto-encoder output
-#define LIMIT_CW 4      // Home position limit switch
-#define LIMIT_CCW 5      // Max elevation limit switch
-#define MOTOR_CW 7      // Motor CW
-#define MOTOR_CCW 9      // Motor CCW
+#define ENCODER    34  // input only
+#define LIMIT_CW   32  // OK
+#define LIMIT_CCW  33  // OK
+#define MOTOR_CW   25  // OK, supporta PWM
+#define MOTOR_CCW  26  // OK, supporta PWM
 
 // deadband and minimum PWM
 #define MIN_PWM 50

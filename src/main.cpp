@@ -6,15 +6,17 @@
 #include <easycomm-parser.h>
 #include <easycomm-command-callback-handler.h>
 
-#include "Arduino.h"
+#include <Arduino.h>
+#include <ArduinoLog.h>
 
+#define DEBUG_SERIAL Serial
+#define RSERIAL Serial2
 
-#define DEBUG
 
 #ifdef DEBUG
-    #define DEBUG_PRINT(x) Serial.print(x)
-    #define DEBUG_PRINTLN(x) Serial.println(x)
-    #define DEBUG_PRINTF(x, ...) Serial.printf(x, ##__VA_ARGS__)
+    #define DEBUG_PRINT(x)          Log.noticeln(x)
+    #define DEBUG_PRINTLN(x)        Log.noticeln(x)
+    #define DEBUG_PRINTF(x, ...)    Log.noticeln(x, ##__VA_ARGS__)
 #else
     #define DEBUG_PRINT(x)
     #define DEBUG_PRINTLN(x)
@@ -31,10 +33,11 @@ TaskHandle_t SerialTaskHandle = NULL;
 
 void SerialTask(void *parameter) {
     for (;;) {
-        if (Serial2.available()) {
-            String line = Serial2.readStringUntil('\n');
+        if (RSERIAL.available()) {
+            String line = RSERIAL.readStringUntil('\n');
             line.trim();
             DEBUG_PRINTF("RX: '%s'\n", line.c_str());
+
             easycommHandleCommand(line.c_str(), &cb_handler, EasycommParserStandard2, nullptr);
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -49,26 +52,35 @@ void onAzimuth(const EasycommData *cmd, void *user_data) {
 
 void onGetAzimuth(const EasycommData *cmd, void *user_data) {
     Position p = rotator.get_current_position();
+    char buf[16];
+    snprintf(buf, sizeof(buf), "AZ%05.1f\n", p.azimuth);  // AZ000.0
+    RSERIAL.print(buf);
+    RSERIAL.flush();
+}
 
-    Serial2.print("AZ");
-    Serial2.print(p.azimuth, 1);
-    Serial2.print(" EL");
-    Serial2.println(p.elevation, 1);
+void onGetElevation(const EasycommData *cmd, void *user_data) {
+    Position p = rotator.get_current_position();
+    char buf[16];
+    snprintf(buf, sizeof(buf), "EL%05.1f\n", p.elevation);  // EL000.0
+    RSERIAL.print(buf);
+    RSERIAL.flush();
 }
 
 void onStop(const EasycommData *cmd, void *user_data) {
     // Call your rotator's stop method
     rotator.stop_motor(); 
     #ifdef DEBUG
-    DEBUG_PRINTLN("Stop command received");
+    Log.infoln("Stop command received");
     #endif
 }
 
 void setup()
 {
-    Serial.begin(9600);
-    Serial2.begin(9600);
-    Serial2.setTimeout(50);
+    DEBUG_SERIAL.begin(115200);
+    Log.begin(LOG_LEVEL_VERBOSE, &DEBUG_SERIAL);
+
+    RSERIAL.begin(115200);
+    RSERIAL.setTimeout(50);
 
     rotator.begin(KP, KI, KD, NAN, NAN, NAN);
     rotator.set_range(130, 0);
@@ -79,8 +91,9 @@ void setup()
 
     // Override registry with Azimuth, Get Azimuth, and Stop
     cb_handler.registry[EasycommIdSetAzimuth] = onAzimuth;
-    cb_handler.registry[EasycommIdGetAzimuth] = onGetAzimuth;
-    cb_handler.registry[EasycommIdSingleLine] = onGetAzimuth;
+    cb_handler.registry[EasycommIdGetAzimuth]   = onGetAzimuth;
+    cb_handler.registry[EasycommIdGetElevation] = onGetElevation;
+    cb_handler.registry[EasycommIdSingleLine]   = onGetAzimuth; // fallback
     cb_handler.registry[EasycommIdDoStopAzimuthMove] = onStop; // Standard EasyComm 'ST'
 
     xTaskCreatePinnedToCore(
@@ -90,7 +103,7 @@ void setup()
         NULL,              // Parameters
         1,                 // Priority
         &SerialTaskHandle,  // Task handle
-        1                  // Core 1
+        0                  // Core 1
     );
 }
 

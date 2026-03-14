@@ -1,17 +1,21 @@
-#include "Arduino.h"
+#include <Arduino.h>
+#include <ArduinoLog.h>
+
 #include <PID_v1.h>
 #include "rotor.h"
 #include "config.h"
 
-#define DEBUG
 
 #ifdef DEBUG
-    #define DEBUG_PRINT(x) Serial.print(x)
-    #define DEBUG_PRINTLN(x) Serial.println(x)
+    #define DEBUG_PRINT(x) Log.noticeln(x)
+    #define DEBUG_PRINTLN(x)      Log.noticeln(x)
+    #define DEBUG_PRINTF(x, ...)  Log.noticeln(x, ##__VA_ARGS__)
 #else
     #define DEBUG_PRINT(x)
     #define DEBUG_PRINTLN(x)
+    #define DEBUG_PRINTF(x, ...)
 #endif
+
 
 void IRAM_ATTR Rotor::isrHandler(void *arg)
 {
@@ -100,7 +104,7 @@ void Rotor::loop()
 
 void Rotor::calibrate()
 {
-    DEBUG_PRINTLN("CALIBRATING...");
+    DEBUG_PRINTLN("Calibrating...");
 
     this->direction = true;
     controlMotor(255);
@@ -119,8 +123,6 @@ void Rotor::calibrate()
     this->direction = false;
     controlMotor(-255);
 
-    DEBUG_PRINTLN(digitalRead(this->limit_switch_ccw));
-
     while (digitalRead(this->limit_switch_ccw) == LOW)
     {
         delay(1);
@@ -130,15 +132,14 @@ void Rotor::calibrate()
 
     controlMotor(0);
 
-    DEBUG_PRINTLN(this->current_steps);
+    DEBUG_PRINTF("Current steps: %d\n", this->current_steps);
 
     this->steps_per_degree = abs(this->current_steps) / this->max_degrees;
     this->current_steps = 0;
 
     this->is_calibrated = true;
 
-    DEBUG_PRINT("Pulses/Degree: ");
-    DEBUG_PRINTLN(this->steps_per_degree);
+    DEBUG_PRINTF("Calibration complete. Steps per degree: %F\n", this->steps_per_degree);
 }
 
 void Rotor::set_range(float degrees)
@@ -161,11 +162,10 @@ void Rotor::move_motor(float degrees)
         return;
     }
 
-    DEBUG_PRINT("Moving to: ");
-    DEBUG_PRINTLN(degrees);
+    DEBUG_PRINTF("Moving to: %0.2f degrees\n", degrees);
 
     this->target_steps = (int)(degrees * this->steps_per_degree);
-    DEBUG_PRINTLN(this->target_steps);
+    DEBUG_PRINTF("Target steps: %d\n", this->target_steps);
 }
 
 void Rotor::move_motor_by_steps(int steps)
