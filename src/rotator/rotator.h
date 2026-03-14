@@ -26,4 +26,6 @@ class Rotator{
         void stop_motor();
 
         Position get_current_position();
+        Position get_range();
+        Position get_offset();
 };

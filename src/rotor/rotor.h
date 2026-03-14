@@ -46,5 +46,7 @@ public:
     void move_motor(float degrees);
     void move_motor_by_steps(int steps);
     float get_current_position();
+    float get_range();
+    float get_offset();
     void stop_motor();
 };

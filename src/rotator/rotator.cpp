@@ -97,3 +97,37 @@ Position Rotator::get_current_position()
 
     return p;
 }
+
+Position Rotator::get_range()
+{
+    Position p;
+
+    if (this->azimuth)
+        p.azimuth = this->azimuth->get_range();
+    else
+        p.azimuth = 0.0;
+
+    if (this->elevation)
+        p.elevation = this->elevation->get_range();
+    else
+        p.elevation = 0.0;
+
+    return p;
+}
+
+Position Rotator::get_offset()
+{
+    Position p;
+
+    if (this->azimuth)
+        p.azimuth = this->azimuth->get_offset();
+    else
+        p.azimuth = 0.0;
+
+    if (this->elevation)
+        p.elevation = this->elevation->get_offset();
+    else
+        p.elevation = 0.0;
+
+    return p;
+}

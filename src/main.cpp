@@ -31,48 +31,16 @@ Rotator rotator(&azimuth, nullptr);
 
 TaskHandle_t SerialTaskHandle = NULL;
 
-void SerialTask(void *parameter) {
-    for (;;) {
-        if (RSERIAL.available()) {
-            String line = RSERIAL.readStringUntil('\n');
-            line.trim();
-            DEBUG_PRINTF("RX: '%s'\n", line.c_str());
+// Forward declarations
+void parseCustomCommands(String line);
+void SerialTask(void *parameter);
 
-            easycommHandleCommand(line.c_str(), &cb_handler, EasycommParserStandard2, nullptr);
-        }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-}
+// Forward declarations for easycomm callbacks
+void onAzimuth(const EasycommData *cmd, void *user_data);
+void onGetAzimuth(const EasycommData *cmd, void *user_data);
+void onGetElevation(const EasycommData *cmd, void *user_data);
+void onStop(const EasycommData *cmd, void *user_data);
 
-
-void onAzimuth(const EasycommData *cmd, void *user_data) {
-    float targetAz = cmd->as.setAzimuth.azimuth;
-    rotator.move_motor(targetAz, 0);
-}
-
-void onGetAzimuth(const EasycommData *cmd, void *user_data) {
-    Position p = rotator.get_current_position();
-    char buf[16];
-    snprintf(buf, sizeof(buf), "AZ%05.1f\n", p.azimuth);  // AZ000.0
-    RSERIAL.print(buf);
-    RSERIAL.flush();
-}
-
-void onGetElevation(const EasycommData *cmd, void *user_data) {
-    Position p = rotator.get_current_position();
-    char buf[16];
-    snprintf(buf, sizeof(buf), "EL%05.1f\n", p.elevation);  // EL000.0
-    RSERIAL.print(buf);
-    RSERIAL.flush();
-}
-
-void onStop(const EasycommData *cmd, void *user_data) {
-    // Call your rotator's stop method
-    rotator.stop_motor(); 
-    #ifdef DEBUG
-    Log.infoln("Stop command received");
-    #endif
-}
 
 void setup()
 {
@@ -103,11 +71,117 @@ void setup()
         NULL,              // Parameters
         1,                 // Priority
         &SerialTaskHandle,  // Task handle
-        0                  // Core 1
+        0                  // Core 0
     );
 }
 
 void loop()
 {
     rotator.loop();
+}
+
+void SerialTask(void *parameter) {
+    for (;;) {
+        if (RSERIAL.available()) {
+            String line = RSERIAL.readStringUntil('\n');
+            line.trim();
+            DEBUG_PRINTF("RX: '%s'\n", line.c_str());
+
+            bool status = easycommHandleCommand(line.c_str(), &cb_handler, EasycommParserStandard2, nullptr);
+
+            if (!status) {
+                DEBUG_PRINTLN("Command not recognized by easycomm parser, trying custom parser...");
+                parseCustomCommands(line);
+            }
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+}
+
+void parseCustomCommands(String line) {
+    // This function can be used to parse any custom commands that are not handled by the easycomm parser
+    // For example, you can implement commands like "RECAL", "REBOOT", "RANGE AZ?", etc. here
+    if (line == "RECAL") {
+        DEBUG_PRINTLN("Recalibrating...");
+        rotator.calibrate();
+        RSERIAL.println("RECALIBRATED");
+
+    } else if (line == "REBOOT") {
+        DEBUG_PRINTLN("Rebooting...");
+        delay(100);
+        ESP.restart();
+
+    } else if (line == "RANGE AZ?") {
+        float range = rotator.get_range().azimuth;
+        RSERIAL.printf("RANGE AZ%05.1f\n", range);
+
+    } else if (line == "RANGE EL?") {
+        float range = rotator.get_range().elevation;
+        RSERIAL.printf("RANGE EL%05.1f\n", range);
+
+    } else if (line == "OFFSET AZ?") {
+        float offset = rotator.get_offset().azimuth;
+        RSERIAL.printf("OFFSET AZ%05.1f\n", offset);
+
+    } else if (line == "OFFSET EL?") {
+        float offset = rotator.get_offset().elevation;
+        RSERIAL.printf("OFFSET EL%05.1f\n", offset);
+
+    } else if (line.startsWith("RANGE AZ ")) {
+        float range = line.substring(9).toFloat();
+        rotator.set_range(range, rotator.get_range().elevation);
+        DEBUG_PRINTF("AZ range set to: %F", range);
+        RSERIAL.printf("RANGE AZ%05.1f\n", range);
+
+    } else if (line.startsWith("RANGE EL ")) {
+        float range = line.substring(9).toFloat();
+        rotator.set_range(rotator.get_range().azimuth, range);
+        DEBUG_PRINTF("EL range set to: %F", range);
+        RSERIAL.printf("RANGE EL%05.1f\n", range);
+
+    } else if (line.startsWith("OFFSET AZ ")) {
+        float offset = line.substring(10).toFloat();
+        rotator.set_offset(offset, rotator.get_offset().elevation);
+        DEBUG_PRINTF("AZ offset set to: %F", offset);
+        RSERIAL.printf("OFFSET AZ%05.1f\n", offset);
+
+    } else if (line.startsWith("OFFSET EL ")) {
+        float offset = line.substring(10).toFloat();
+        rotator.set_offset(rotator.get_offset().azimuth, offset);
+        DEBUG_PRINTF("EL offset set to: %F", offset);
+        RSERIAL.printf("OFFSET EL%05.1f\n", offset);
+    }
+    else {
+        DEBUG_PRINTLN("Unknown command");
+        RSERIAL.println("ERROR: Unknown command");
+    }
+}
+
+void onAzimuth(const EasycommData *cmd, void *user_data) {
+    float targetAz = cmd->as.setAzimuth.azimuth;
+    rotator.move_motor(targetAz, 0);
+}
+
+void onGetAzimuth(const EasycommData *cmd, void *user_data) {
+    Position p = rotator.get_current_position();
+    char buf[16];
+    snprintf(buf, sizeof(buf), "AZ%05.1f\n", p.azimuth);  // AZ000.0
+    RSERIAL.print(buf);
+    RSERIAL.flush();
+}
+
+void onGetElevation(const EasycommData *cmd, void *user_data) {
+    Position p = rotator.get_current_position();
+    char buf[16];
+    snprintf(buf, sizeof(buf), "EL%05.1f\n", p.elevation);  // EL000.0
+    RSERIAL.print(buf);
+    RSERIAL.flush();
+}
+
+void onStop(const EasycommData *cmd, void *user_data) {
+    // Call your rotator's stop method
+    rotator.stop_motor(); 
+    #ifdef DEBUG
+    DEBUG_PRINTLN("Stop command received");
+    #endif
 }

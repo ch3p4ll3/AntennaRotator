@@ -182,8 +182,18 @@ void Rotor::move_motor_by_steps(int steps)
 
 float Rotor::get_current_position()
 {
-    if (this->steps_per_degree == 0) return 0.0;
+    if (this->steps_per_degree == 0) return 0.0 + this->offset; // avoid division by zero
     return (this->current_steps / this->steps_per_degree) + this->offset;
+}
+
+float Rotor::get_range()
+{
+    return this->max_degrees;
+}
+
+float Rotor::get_offset()
+{
+    return this->offset;
 }
 
 void Rotor::controlMotor(int pwmVal){
