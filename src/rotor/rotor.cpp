@@ -21,18 +21,19 @@ void IRAM_ATTR Rotor::isrHandler(void *arg)
 {
     Rotor *self = static_cast<Rotor *>(arg);
 
-    if (digitalRead(self->encoder_pin) != LOW) return;
+    // using 74HC14. Don't need to worry about bouncing
+    // if (digitalRead(self->encoder_pin) != LOW) return;
 
-    uint32_t now = micros();
-    uint32_t dt = now - self->lastPulseTime;
+    // uint32_t now = micros();
+    // uint32_t dt = now - self->lastPulseTime;
 
-    uint32_t debounce = self->lastPeriod / 3;   // dynamic debounce
+    // uint32_t debounce = self->lastPeriod / 3;   // dynamic debounce
 
-    if (dt < debounce)
-        return;
+    // if (dt < debounce)
+    //     return;
 
-    self->lastPeriod = dt;
-    self->lastPulseTime = now;
+    // self->lastPeriod = dt;
+    // self->lastPulseTime = now;
 
 
     if (self->direction)
@@ -62,7 +63,7 @@ void Rotor::begin(double kp=NAN, double ki=NAN, double kd=NAN)
     pinMode(this->limit_switch_ccw, INPUT_PULLUP);
 
     pinMode(this->encoder_pin, INPUT);
-    attachInterruptArg(digitalPinToInterrupt(this->encoder_pin), Rotor::isrHandler, this, FALLING);
+    attachInterruptArg(digitalPinToInterrupt(this->encoder_pin), Rotor::isrHandler, this, RISING);
 
     this->pid.SetMode(AUTOMATIC);
     this->pid.SetOutputLimits(-255, 255);  // For bidirectional control
@@ -80,8 +81,8 @@ void Rotor::loop()
     bool at_ccw = digitalRead(this->limit_switch_ccw) == HIGH;
 
     // block movement INTO a limit
-    if ((at_cw && this->target_steps > this->current_steps) ||
-        (at_ccw && this->target_steps < this->current_steps))
+    if ((at_cw && this->target_steps >= this->current_steps) ||
+        (at_ccw && this->target_steps <= this->current_steps))
     {
         controlMotor(0);
 
