@@ -21,6 +21,7 @@ private:
     volatile long current_steps = 0;
 
     volatile unsigned long lastPulseTime = 0;
+    volatile uint32_t lastPeriod = 10000; // start large
 
     float offset = 0;
 

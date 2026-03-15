@@ -8,10 +8,10 @@
 #define MOTOR_CCW  26  // OK, supporta PWM
 
 // deadband and minimum PWM
-#define MIN_PWM 50
-#define DEADBAND_STEPS 5
+#define MIN_PWM 70
+#define DEADBAND_STEPS 2
 
 // PID gain
-#define KP 2.0
-#define KI 0.5
+#define KP 3
+#define KI 0
 #define KD 0.1

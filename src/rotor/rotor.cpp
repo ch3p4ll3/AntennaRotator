@@ -21,9 +21,19 @@ void IRAM_ATTR Rotor::isrHandler(void *arg)
 {
     Rotor *self = static_cast<Rotor *>(arg);
 
-    unsigned long now = micros();
-    if ((now - self->lastPulseTime) < 1000) return; // ignore bounces within 1000µs
+    if (digitalRead(self->encoder_pin) != LOW) return;
+
+    uint32_t now = micros();
+    uint32_t dt = now - self->lastPulseTime;
+
+    uint32_t debounce = self->lastPeriod / 3;   // dynamic debounce
+
+    if (dt < debounce)
+        return;
+
+    self->lastPeriod = dt;
     self->lastPulseTime = now;
+
 
     if (self->direction)
     {
@@ -69,35 +79,39 @@ void Rotor::loop()
     bool at_cw  = digitalRead(this->limit_switch_cw)  == HIGH;
     bool at_ccw = digitalRead(this->limit_switch_ccw) == HIGH;
 
+    // block movement INTO a limit
     if ((at_cw && this->target_steps > this->current_steps) ||
         (at_ccw && this->target_steps < this->current_steps))
     {
         controlMotor(0);
-        if (at_cw)  this->current_steps = this->max_degrees * this->steps_per_degree;
-        if (at_ccw) this->current_steps = 0;
+
+        if (at_cw)
+            this->current_steps = this->max_degrees * this->steps_per_degree;
+
+        if (at_ccw)
+            this->current_steps = 0;
 
         this->target_steps = this->current_steps;
 
-        // reset PID state to avoid integral windup
-        this->pid.SetMode(MANUAL);
-        this->pid.SetMode(AUTOMATIC);
+        pid.SetMode(MANUAL);
+        pid.SetMode(AUTOMATIC);
+
         return;
     }
 
     // Deadband
-    if (abs(this->target_steps - this->current_steps) <= DEADBAND_STEPS)
-    {
-        this->target_steps = this->current_steps;
-        controlMotor(0);
-        return;
-    }
+    // if (abs(this->target_steps - this->current_steps) <= DEADBAND_STEPS)
+    // {
+    //     controlMotor(0);
+    //     return;
+    // }
 
     this->input = (double)this->current_steps;
     this->setpoint = (double)this->target_steps;
-    this->direction = this->target_steps > this->current_steps;
 
     this->pid.Compute();  // Update output
 
+    DEBUG_PRINTF("input: %F, setpoint: %F, out: %F, at_cw: %d, at_ccw: %d", this->input, this->setpoint, this->output, at_cw, at_ccw);
 
     controlMotor(this->output);
 }
@@ -132,14 +146,14 @@ void Rotor::calibrate()
 
     controlMotor(0);
 
-    DEBUG_PRINTF("Current steps: %d\n", this->current_steps);
+    DEBUG_PRINTF("Current steps: %d", this->current_steps);
 
     this->steps_per_degree = abs(this->current_steps) / this->max_degrees;
     this->current_steps = 0;
 
     this->is_calibrated = true;
 
-    DEBUG_PRINTF("Calibration complete. Steps per degree: %F\n", this->steps_per_degree);
+    DEBUG_PRINTF("Calibration complete. Steps per degree: %F", this->steps_per_degree);
 }
 
 void Rotor::set_range(float degrees)
@@ -162,10 +176,10 @@ void Rotor::move_motor(float degrees)
         return;
     }
 
-    DEBUG_PRINTF("Moving to: %0.2f degrees\n", degrees);
+    DEBUG_PRINTF("Moving to: %F degrees", degrees);
 
     this->target_steps = (int)(degrees * this->steps_per_degree);
-    DEBUG_PRINTF("Target steps: %d\n", this->target_steps);
+    DEBUG_PRINTF("Target steps: %d", this->target_steps);
 }
 
 void Rotor::move_motor_by_steps(int steps)
@@ -204,14 +218,16 @@ void Rotor::controlMotor(int pwmVal){
     pwm = constrain(pwm, 0, 255);
 
     if (pwmVal > 0) {
+        this->direction = true;
         analogWrite(this->motor_cw, pwm);
-        digitalWrite(this->motor_ccw, LOW);
+        analogWrite(this->motor_ccw, 0);
     } else if (pwmVal < 0) {
-        digitalWrite(this->motor_cw, LOW);
+        this->direction = false;
+        analogWrite(this->motor_cw, 0);
         analogWrite(this->motor_ccw, pwm);
     } else {
-        digitalWrite(this->motor_cw, LOW);
-        digitalWrite(this->motor_ccw, LOW);
+        analogWrite(this->motor_cw, 0);
+        analogWrite(this->motor_ccw, 0);
     }
 }
 
