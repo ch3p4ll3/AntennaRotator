@@ -80,19 +80,22 @@ void Rotor::loop()
     bool at_cw  = digitalRead(this->limit_switch_cw)  == HIGH;
     bool at_ccw = digitalRead(this->limit_switch_ccw) == HIGH;
 
+    long current = this->current_steps;
+
     // block movement INTO a limit
-    if ((at_cw && this->target_steps >= this->current_steps) ||
-        (at_ccw && this->target_steps <= this->current_steps))
+    if ((at_cw && this->target_steps >= current) ||
+        (at_ccw && this->target_steps <= current))
     {
         controlMotor(0);
 
         if (at_cw)
-            this->current_steps = this->max_degrees * this->steps_per_degree;
+            current = this->max_degrees * this->steps_per_degree;
 
         if (at_ccw)
-            this->current_steps = 0;
+            current = 0;
 
-        this->target_steps = this->current_steps;
+        this->current_steps = current;
+        this->target_steps = current;
 
         pid.SetMode(MANUAL);
         pid.SetMode(AUTOMATIC);
@@ -107,7 +110,7 @@ void Rotor::loop()
     //     return;
     // }
 
-    this->input = (double)this->current_steps;
+    this->input = (double)current;
     this->setpoint = (double)this->target_steps;
 
     this->pid.Compute();  // Update output
@@ -119,42 +122,30 @@ void Rotor::loop()
 
 void Rotor::calibrate()
 {
-    DEBUG_PRINTLN("Calibrating...");
-
-    this->direction = true;
-    controlMotor(255);
-
-    while (digitalRead(this->limit_switch_cw) == LOW)
-    {
-        delay(1);
-    }
-
-    DEBUG_PRINTLN("Rotor to CW stop");
-
+    DEBUG_PRINTLN("Calibrating: Finding CW limit...");
+    controlMotor(200); // Move CW at steady speed
+    while (digitalRead(this->limit_switch_cw) == LOW) { delay(1); }
     controlMotor(0);
+    delay(200);
 
-    this->current_steps = 0;
+    this->current_steps = 0; // Temporary zero
+    DEBUG_PRINTLN("CW Found. Moving to CCW limit...");
 
-    this->direction = false;
-    controlMotor(-255);
-
-    while (digitalRead(this->limit_switch_ccw) == LOW)
-    {
-        delay(1);
-    }
-
-    DEBUG_PRINTLN("Rotor to CCW stop");
-
+    controlMotor(-200); // Move CCW
+    while (digitalRead(this->limit_switch_ccw) == LOW) { delay(1); }
     controlMotor(0);
-
-    DEBUG_PRINTF("Current steps: %d", this->current_steps);
-
-    this->steps_per_degree = abs(this->current_steps) / this->max_degrees;
+    
+    noInterrupts();
+    long total_pulses = abs(this->current_steps);
+    this->steps_per_degree = (float)total_pulses / this->max_degrees;
+    
+    // Set CCW as the absolute 0
     this->current_steps = 0;
-
+    interrupts();
+    
+    this->target_steps = 0;
     this->is_calibrated = true;
-
-    DEBUG_PRINTF("Calibration complete. Steps per degree: %F", this->steps_per_degree);
+    DEBUG_PRINTF("Calibrated. Scale: %F steps/deg", this->steps_per_degree);
 }
 
 void Rotor::set_range(float degrees)
