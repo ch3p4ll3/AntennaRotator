@@ -1,7 +1,7 @@
 #define DEBUG
 
 // Pin Definitions
-#define ENCODER    34  // input only
+#define ENCODER    13  // input only
 #define LIMIT_CW   32  // OK
 #define LIMIT_CCW  33  // OK
 #define MOTOR_CW   25  // OK, supporta PWM
@@ -12,6 +12,6 @@
 #define DEADBAND_STEPS 2
 
 // PID gain
-#define KP 3
+#define KP 15
 #define KI 0
-#define KD 0.1
+#define KD 0

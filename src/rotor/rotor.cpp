@@ -81,8 +81,8 @@ void Rotor::loop()
     bool at_ccw = digitalRead(this->limit_switch_ccw) == HIGH;
 
     // block movement INTO a limit
-    if ((at_cw && this->target_steps >= this->current_steps) ||
-        (at_ccw && this->target_steps <= this->current_steps))
+    if ((at_cw && this->target_steps > this->current_steps) ||
+        (at_ccw && this->target_steps < this->current_steps))
     {
         controlMotor(0);
 
@@ -112,7 +112,7 @@ void Rotor::loop()
 
     this->pid.Compute();  // Update output
 
-    DEBUG_PRINTF("input: %F, setpoint: %F, out: %F, at_cw: %d, at_ccw: %d", this->input, this->setpoint, this->output, at_cw, at_ccw);
+    //DEBUG_PRINTF("input: %F, setpoint: %F, out: %F, at_cw: %d, at_ccw: %d", this->input, this->setpoint, this->output, at_cw, at_ccw);
 
     controlMotor(this->output);
 }

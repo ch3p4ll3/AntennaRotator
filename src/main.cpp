@@ -51,7 +51,7 @@ void setup()
     RSERIAL.setTimeout(50);
 
     rotator.begin(KP, KI, KD, NAN, NAN, NAN);
-    rotator.set_range(130, 0);
+    rotator.set_range(90, 0);
 
     rotator.calibrate();
 
