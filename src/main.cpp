@@ -36,7 +36,9 @@ void parseCustomCommands(String line);
 void SerialTask(void *parameter);
 
 // Forward declarations for easycomm callbacks
-void onAzimuth(const EasycommData *cmd, void *user_data);
+void onSetAzimuth(const EasycommData *cmd, void *user_data);
+void onSetElevation(const EasycommData *cmd, void *user_data);
+void onSingleLine(const EasycommData *cmd, void *user_data);
 void onGetAzimuth(const EasycommData *cmd, void *user_data);
 void onGetElevation(const EasycommData *cmd, void *user_data);
 void onStop(const EasycommData *cmd, void *user_data);
@@ -58,10 +60,11 @@ void setup()
     easycommCommandsCallback(&cb_handler, EasycommParserStandard2);
 
     // Override registry with Azimuth, Get Azimuth, and Stop
-    cb_handler.registry[EasycommIdSetAzimuth] = onAzimuth;
+    cb_handler.registry[EasycommIdSetAzimuth] = onSetAzimuth;
     cb_handler.registry[EasycommIdGetAzimuth]   = onGetAzimuth;
+    cb_handler.registry[EasycommIdSetElevation] = onSetElevation;
     cb_handler.registry[EasycommIdGetElevation] = onGetElevation;
-    cb_handler.registry[EasycommIdSingleLine]   = onGetAzimuth; // fallback
+    cb_handler.registry[EasycommIdSingleLine]   = onSingleLine; // fallback
     cb_handler.registry[EasycommIdDoStopAzimuthMove] = onStop; // Standard EasyComm 'ST'
 
     xTaskCreatePinnedToCore(
@@ -84,8 +87,8 @@ void SerialTask(void *parameter) {
     for (;;) {
         if (RSERIAL.available()) {
             String line = RSERIAL.readStringUntil('\n');
-            line.trim();
             DEBUG_PRINTF("RX: '%s'\n", line.c_str());
+            line.trim();
 
             bool status = easycommHandleCommand(line.c_str(), &cb_handler, EasycommParserStandard2, nullptr);
 
@@ -150,6 +153,19 @@ void parseCustomCommands(String line) {
         rotator.set_offset(rotator.get_offset().azimuth, offset);
         DEBUG_PRINTF("EL offset set to: %F", offset);
         RSERIAL.printf("OFFSET EL%05.1f\n", offset);
+    
+    } else if (line.startsWith("AZ") && line.indexOf("EL") > 0){
+        int elIdx = line.indexOf("EL");
+
+        String azStr = line.substring(2, elIdx);
+        azStr.trim();
+        float targetAz = azStr.toFloat();
+
+        String elStr = line.substring(elIdx + 2);
+        elStr.trim();
+        float targetEl = elStr.toFloat();
+
+        rotator.move_motor(targetAz, targetEl);
     }
     else {
         DEBUG_PRINTLN("Unknown command");
@@ -157,16 +173,28 @@ void parseCustomCommands(String line) {
     }
 }
 
-void onAzimuth(const EasycommData *cmd, void *user_data) {
+void onSetAzimuth(const EasycommData *cmd, void *user_data) {
     float targetAz = cmd->as.setAzimuth.azimuth;
     rotator.move_motor(targetAz, 0);
+}
+
+void onSetElevation(const EasycommData *cmd, void *user_data) {
+    float targetEl = cmd->as.setElevation.elevation;
+    rotator.move_motor(0, targetEl);
+}
+
+void onSingleLine(const EasycommData *cmd, void *user_data){
+    float targetAz = cmd->as.singleLine.azimuth;
+    float targetEl = cmd->as.singleLine.elevation;
+
+    rotator.move_motor(targetAz, targetEl);
 }
 
 void onGetAzimuth(const EasycommData *cmd, void *user_data) {
     Position p = rotator.get_current_position();
     char buf[16];
     snprintf(buf, sizeof(buf), "AZ%05.1f\n", p.azimuth);  // AZ000.0
-    RSERIAL.print(buf);
+    RSERIAL.println(buf);
     RSERIAL.flush();
 }
 
@@ -174,9 +202,10 @@ void onGetElevation(const EasycommData *cmd, void *user_data) {
     Position p = rotator.get_current_position();
     char buf[16];
     snprintf(buf, sizeof(buf), "EL%05.1f\n", p.elevation);  // EL000.0
-    RSERIAL.print(buf);
+    RSERIAL.println(buf);
     RSERIAL.flush();
 }
+
 
 void onStop(const EasycommData *cmd, void *user_data) {
     // Call your rotator's stop method
