@@ -67,6 +67,7 @@ void Rotor::begin(double kp=NAN, double ki=NAN, double kd=NAN)
 
     this->pid.SetMode(AUTOMATIC);
     this->pid.SetOutputLimits(-255, 255);  // For bidirectional control
+    this->pid.SetSampleTime(20);
 
     if (!isnan(kp) && !isnan(ki) && !isnan(kd))
         this->pid.SetTunings(kp, ki, kd);
@@ -84,7 +85,8 @@ void Rotor::loop()
     if ((at_cw && this->target_steps > this->current_steps) ||
         (at_ccw && this->target_steps < this->current_steps))
     {
-        controlMotor(0);
+        pid.SetMode(MANUAL);
+        stop_motor();
 
         if (at_cw)
             this->current_steps = this->max_degrees * this->steps_per_degree;
@@ -92,9 +94,8 @@ void Rotor::loop()
         if (at_ccw)
             this->current_steps = 0;
 
-        this->target_steps = this->current_steps;
+        //this->target_steps = this->current_steps;
 
-        pid.SetMode(MANUAL);
         pid.SetMode(AUTOMATIC);
 
         return;
@@ -110,11 +111,10 @@ void Rotor::loop()
     this->input = (double)this->current_steps;
     this->setpoint = (double)this->target_steps;
 
-    this->pid.Compute();  // Update output
-
-    //DEBUG_PRINTF("input: %F, setpoint: %F, out: %F, at_cw: %d, at_ccw: %d", this->input, this->setpoint, this->output, at_cw, at_ccw);
-
-    controlMotor(this->output);
+    if (this->pid.Compute()){
+        // DEBUG_PRINTF("input: %F, setpoint: %F, out: %F, at_cw: %d, at_ccw: %d", this->input, this->setpoint, this->output, at_cw, at_ccw);
+        controlMotor(this->output);
+    }
 }
 
 void Rotor::calibrate()

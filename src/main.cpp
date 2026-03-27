@@ -192,17 +192,13 @@ void onSingleLine(const EasycommData *cmd, void *user_data){
 
 void onGetAzimuth(const EasycommData *cmd, void *user_data) {
     Position p = rotator.get_current_position();
-    char buf[16];
-    snprintf(buf, sizeof(buf), "AZ%05.1f\n", p.azimuth);  // AZ000.0
-    RSERIAL.println(buf);
+    RSERIAL.printf("AZ%f\r\n", p.azimuth);
     RSERIAL.flush();
 }
 
 void onGetElevation(const EasycommData *cmd, void *user_data) {
     Position p = rotator.get_current_position();
-    char buf[16];
-    snprintf(buf, sizeof(buf), "EL%05.1f\n", p.elevation);  // EL000.0
-    RSERIAL.println(buf);
+    RSERIAL.printf("EL%f\r\n", p.elevation);
     RSERIAL.flush();
 }
 
