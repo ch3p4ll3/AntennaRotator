@@ -2,18 +2,21 @@
 #include "./rotor/rotor.h"
 #include "./rotator/rotator.h"
 
-#include <AsyncTCP.h>
-#include <WiFi.h>
+#include <easycomm-parser-types-ctors.h>
+#include <easycomm-parser.h>
+#include <easycomm-command-callback-handler.h>
 
-#include "Arduino.h"
+#include <Arduino.h>
+#include <ArduinoLog.h>
 
+#define DEBUG_SERIAL Serial
+#define RSERIAL Serial2
 
-#define DEBUG
 
 #ifdef DEBUG
-    #define DEBUG_PRINT(x) Serial.print(x)
-    #define DEBUG_PRINTLN(x) Serial.println(x)
-    #define DEBUG_PRINTF(x, ...) Serial.printf(x, ##__VA_ARGS__)
+    #define DEBUG_PRINT(x)          Log.noticeln(x)
+    #define DEBUG_PRINTLN(x)        Log.noticeln(x)
+    #define DEBUG_PRINTF(x, ...)    Log.noticeln(x, ##__VA_ARGS__)
 #else
     #define DEBUG_PRINT(x)
     #define DEBUG_PRINTLN(x)
@@ -21,91 +24,60 @@
 #endif
 
 
+EasycommCommandsCallback cb_handler;
+
 Rotor azimuth(MOTOR_CW, MOTOR_CCW, LIMIT_CW, LIMIT_CCW, ENCODER);
 Rotator rotator(&azimuth, nullptr);
 
-// function definition
-void connect_to_wifi();
-void init_server();
+TaskHandle_t SerialTaskHandle = NULL;
 
-volatile bool aziumuth_encoder = false;
+// Forward declarations
+void parseCustomCommands(String line);
+void SerialTask(void *parameter);
 
+// Forward declarations for easycomm callbacks
+void onSetAzimuth(const EasycommData *cmd, void *user_data);
+void onSetElevation(const EasycommData *cmd, void *user_data);
+void onSingleLine(const EasycommData *cmd, void *user_data);
+void onGetAzimuth(const EasycommData *cmd, void *user_data);
+void onGetElevation(const EasycommData *cmd, void *user_data);
+void onStop(const EasycommData *cmd, void *user_data);
 
-static void handleData(void *arg, AsyncClient *client, void *data, size_t len)
-{
-    DEBUG_PRINTF("\n data received from client %s \n", client->remoteIP().toString().c_str());
-
-    String decodedData = String((uint8_t *)data, len);
-    String toSendString;
-
-    if (decodedData.startsWith("p"))
-    {
-        Position p = rotator.get_current_position();
-        //DEBUG_PRINTLN("Get current position");
-        toSendString = toSendString = String(p.azimuth, 1) + "\n" + String(p.elevation, 1) + "\n";  // 1 decimal point;
-    }
-
-    else if (decodedData.startsWith("P"))
-    {
-        //DEBUG_PRINTLN("Set position" + decodedData);
-        String numbers = decodedData.substring(2);
-        int indexOfSpace = numbers.indexOf(' ');
-
-        String azim = numbers.substring(0, indexOfSpace);
-        String elev = numbers.substring(indexOfSpace + 1);
-
-        rotator.move_motor(azim.toFloat(), elev.toFloat());
-
-        toSendString = "RPRT 0\n";
-    }
-
-    else if (decodedData.startsWith("S"))
-    {
-        toSendString = "RPRT 0\n";
-    }
-
-    if (client->space() > strlen(toSendString.c_str()) && client->canSend())
-    {
-        client->add(toSendString.c_str(), strlen(toSendString.c_str()));
-        client->send();
-    }
-}
-
-static void handleError(void *arg, AsyncClient *client, int8_t error)
-{
-    DEBUG_PRINTF("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
-}
-
-static void handleDisconnect(void *arg, AsyncClient *client)
-{
-    DEBUG_PRINTF("\n client %s disconnected \n", client->remoteIP().toString().c_str());
-}
-
-static void handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
-{
-    DEBUG_PRINTF("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
-}
-
-static void handleNewClient(void *arg, AsyncClient *client)
-{
-    DEBUG_PRINTF("\n new client has been connected to server, ip: %s", client->remoteIP().toString().c_str());
-    // register events
-    client->onData(&handleData, NULL);
-    client->onError(&handleError, NULL);
-    client->onDisconnect(&handleDisconnect, NULL);
-    client->onTimeout(&handleTimeOut, NULL);
-}
 
 void setup()
 {
-    Serial.begin(115200);
+    DEBUG_SERIAL.begin(115200);
+    Log.begin(LOG_LEVEL_VERBOSE, &DEBUG_SERIAL);
 
-    rotator.begin();
-    rotator.set_range(130, 0);
+    RSERIAL.begin(115200);
+    RSERIAL.setTimeout(50);
+
+    easycommCommandsCallback(&cb_handler, EasycommParserStandard2);
+
+    // Override registry with Azimuth, Get Azimuth, and Stop
+    cb_handler.registry[EasycommIdSetAzimuth] = onSetAzimuth;
+    cb_handler.registry[EasycommIdGetAzimuth]   = onGetAzimuth;
+    cb_handler.registry[EasycommIdSetElevation] = onSetElevation;
+    cb_handler.registry[EasycommIdGetElevation] = onGetElevation;
+    cb_handler.registry[EasycommIdSingleLine]   = onSingleLine; // fallback
+    cb_handler.registry[EasycommIdDoStopAzimuthMove] = onStop; // Standard EasyComm 'ST'
+
+    xTaskCreatePinnedToCore(
+        SerialTask,         // Task function
+        "SerialTask",       // Task name
+        10000,             // Stack size (bytes)
+        NULL,              // Parameters
+        1,                 // Priority
+        &SerialTaskHandle,  // Task handle
+        0                  // Core 0
+    );
+    
+    rotator.begin(KP, KI, KD, NAN, NAN, NAN);
+    rotator.set_range(90, 0);
+    rotator.set_offset(135, 0);
 
     rotator.calibrate();
 
-    init_server();
 }
 
 void loop()
@@ -113,28 +85,132 @@ void loop()
     rotator.loop();
 }
 
-void init_server()
-{
-    connect_to_wifi();
+void SerialTask(void *parameter) {
+    for (;;) {
+        if (RSERIAL.available()) {
+            String line = RSERIAL.readStringUntil('\n');
+            DEBUG_PRINTF("RX: '%s'\n", line.c_str());
+            line.trim();
 
-    AsyncServer *server = new AsyncServer(TCP_SERVER_PORT);
-    server->onClient(&handleNewClient, server);
-    server->begin();
+            bool status = easycommHandleCommand(line.c_str(), &cb_handler, EasycommParserStandard2, nullptr);
+
+            if (!status) {
+                DEBUG_PRINTLN("Command not recognized by easycomm parser, trying custom parser...");
+                parseCustomCommands(line);
+            }
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
 }
 
-void connect_to_wifi()
-{
-    WiFi.mode(WIFI_STA); // Optional
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    DEBUG_PRINTLN("\nConnecting");
+void parseCustomCommands(String line) {
+    // This function can be used to parse any custom commands that are not handled by the easycomm parser
+    // For example, you can implement commands like "RECAL", "REBOOT", "RANGE AZ?", etc. here
+    if (line == "RECAL") {
+        DEBUG_PRINTLN("Recalibrating...");
+        rotator.calibrate();
+        RSERIAL.println("RECALIBRATED");
 
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        DEBUG_PRINT(".");
+    } else if (line == "REBOOT") {
+        DEBUG_PRINTLN("Rebooting...");
         delay(100);
-    }
+        ESP.restart();
 
-    DEBUG_PRINTLN("\nConnected to the WiFi network");
-    DEBUG_PRINT("Local ESP32 IP: ");
-    DEBUG_PRINTLN(WiFi.localIP());
+    } else if (line == "RANGE AZ?") {
+        float range = rotator.get_range().azimuth;
+        RSERIAL.printf("RANGE AZ%05.1f\n", range);
+
+    } else if (line == "RANGE EL?") {
+        float range = rotator.get_range().elevation;
+        RSERIAL.printf("RANGE EL%05.1f\n", range);
+
+    } else if (line == "OFFSET AZ?") {
+        float offset = rotator.get_offset().azimuth;
+        RSERIAL.printf("OFFSET AZ%05.1f\n", offset);
+
+    } else if (line == "OFFSET EL?") {
+        float offset = rotator.get_offset().elevation;
+        RSERIAL.printf("OFFSET EL%05.1f\n", offset);
+
+    } else if (line.startsWith("RANGE AZ ")) {
+        float range = line.substring(9).toFloat();
+        rotator.set_range(range, rotator.get_range().elevation);
+        DEBUG_PRINTF("AZ range set to: %F", range);
+        RSERIAL.printf("RANGE AZ%05.1f\n", range);
+
+    } else if (line.startsWith("RANGE EL ")) {
+        float range = line.substring(9).toFloat();
+        rotator.set_range(rotator.get_range().azimuth, range);
+        DEBUG_PRINTF("EL range set to: %F", range);
+        RSERIAL.printf("RANGE EL%05.1f\n", range);
+
+    } else if (line.startsWith("OFFSET AZ ")) {
+        float offset = line.substring(10).toFloat();
+        rotator.set_offset(offset, rotator.get_offset().elevation);
+        DEBUG_PRINTF("AZ offset set to: %F", offset);
+        RSERIAL.printf("OFFSET AZ%05.1f\n", offset);
+
+    } else if (line.startsWith("OFFSET EL ")) {
+        float offset = line.substring(10).toFloat();
+        rotator.set_offset(rotator.get_offset().azimuth, offset);
+        DEBUG_PRINTF("EL offset set to: %F", offset);
+        RSERIAL.printf("OFFSET EL%05.1f\n", offset);
+    
+    } else if (line.startsWith("AZ") && line.indexOf("EL") > 0){
+        int elIdx = line.indexOf("EL");
+
+        String azStr = line.substring(2, elIdx);
+        azStr.trim();
+        float targetAz = azStr.toFloat();
+
+        String elStr = line.substring(elIdx + 2);
+        elStr.trim();
+        float targetEl = elStr.toFloat();
+
+        rotator.move_motor(targetAz, targetEl);
+    }
+    else {
+        DEBUG_PRINTLN("Unknown command");
+        RSERIAL.println("ERROR: Unknown command");
+    }
+}
+
+void onSetAzimuth(const EasycommData *cmd, void *user_data) {
+    float targetAz = cmd->as.setAzimuth.azimuth;
+    Position p = rotator.get_current_position();
+    rotator.move_motor(targetAz, p.elevation);
+}
+
+void onSetElevation(const EasycommData *cmd, void *user_data) {
+    float targetEl = cmd->as.setElevation.elevation;
+    Position p = rotator.get_current_position();
+    rotator.move_motor(p.azimuth, targetEl);
+}
+
+void onSingleLine(const EasycommData *cmd, void *user_data){
+    float targetAz = cmd->as.singleLine.azimuth;
+    float targetEl = cmd->as.singleLine.elevation;
+
+    rotator.move_motor(targetAz, targetEl);
+}
+
+void onGetAzimuth(const EasycommData *cmd, void *user_data) {
+    Position p = rotator.get_current_position();
+    RSERIAL.printf("AZ%f\r\n", p.azimuth);
+    RSERIAL.flush();
+}
+
+void onGetElevation(const EasycommData *cmd, void *user_data) {
+    Position p = rotator.get_current_position();
+    RSERIAL.printf("EL%f\r\n", p.elevation);
+    RSERIAL.flush();
+}
+
+
+void onStop(const EasycommData *cmd, void *user_data) {
+    // Call your rotator's stop method
+    rotator.stop_motor(); 
+    #ifdef DEBUG
+    DEBUG_PRINTLN("Stop command received");
+    #endif
 }

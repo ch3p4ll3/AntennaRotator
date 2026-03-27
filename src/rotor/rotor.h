@@ -1,6 +1,7 @@
-#include "Arduino.h"
-
 #pragma once
+#include "Arduino.h"
+#include <PID_v1.h>
+
 
 
 class Rotor
@@ -16,9 +17,11 @@ private:
     float max_degrees = 360;
     float steps_per_degree = 100; // to calibrate
 
-    volatile int target_steps = 0;
-    volatile int current_steps = 0;
-    volatile float current_degrees = 0;
+    int target_steps = 0;
+    volatile long current_steps = 0;
+
+    volatile unsigned long lastPulseTime = 0;
+    volatile uint32_t lastPeriod = 10000; // start large
 
     float offset = 0;
 
@@ -26,9 +29,15 @@ private:
 
     static void IRAM_ATTR isrHandler(void *arg);
 
+    double input = 0;
+    double output = 0;
+    double setpoint = 0;
+    PID pid = PID(&input, &output, &setpoint, 2.0, 0.5, 0.1, DIRECT);
+    void controlMotor(int pwmVal);
+
 public:
     Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw, int encoder_pin);
-    void begin();
+    void begin(double kp, double ki, double kd);
     void loop();
     void calibrate();
 
@@ -38,4 +47,7 @@ public:
     void move_motor(float degrees);
     void move_motor_by_steps(int steps);
     float get_current_position();
+    float get_range();
+    float get_offset();
+    void stop_motor();
 };

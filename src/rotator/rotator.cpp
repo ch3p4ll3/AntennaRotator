@@ -7,13 +7,15 @@ Rotator::Rotator(Rotor *azimuth = nullptr, Rotor *elevation = nullptr)
     this->elevation = elevation;
 }
 
-void Rotator::begin()
+void Rotator::begin(double az_kp=NAN, double az_ki=NAN, double az_kd=NAN, double el_kp=NAN, double el_ki=NAN, double el_kd=NAN)
 {
-    if (this->azimuth)
-        this->azimuth->begin();
+    if (this->azimuth){
+        this->azimuth->begin(az_kp, az_ki, az_kd);
+    }
 
-    if (this->elevation)
-        this->elevation->begin();
+    if (this->elevation){
+        this->elevation->begin(el_kp, el_ki, el_kd);
+    }
 }
 
 void Rotator::calibrate()
@@ -61,6 +63,15 @@ void Rotator::move_motor_by_steps(int azimuth_steps, int elevation_steps)
         this->elevation->move_motor_by_steps(elevation_steps);
 }
 
+void Rotator::stop_motor()
+{
+    if (this->azimuth)
+        this->azimuth->stop_motor();
+
+    if (this->elevation)
+        this->elevation->stop_motor();
+}
+
 void Rotator::set_offset(float azimuth_degrees, float elevation_degrees)
 {
     if (this->azimuth)
@@ -81,6 +92,40 @@ Position Rotator::get_current_position()
 
     if (this->elevation)
         p.elevation = this->elevation->get_current_position();
+    else
+        p.elevation = 0.0;
+
+    return p;
+}
+
+Position Rotator::get_range()
+{
+    Position p;
+
+    if (this->azimuth)
+        p.azimuth = this->azimuth->get_range();
+    else
+        p.azimuth = 0.0;
+
+    if (this->elevation)
+        p.elevation = this->elevation->get_range();
+    else
+        p.elevation = 0.0;
+
+    return p;
+}
+
+Position Rotator::get_offset()
+{
+    Position p;
+
+    if (this->azimuth)
+        p.azimuth = this->azimuth->get_offset();
+    else
+        p.azimuth = 0.0;
+
+    if (this->elevation)
+        p.elevation = this->elevation->get_offset();
     else
         p.elevation = 0.0;
 
