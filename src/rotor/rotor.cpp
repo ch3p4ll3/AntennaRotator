@@ -86,7 +86,7 @@ void Rotor::loop()
         (at_ccw && this->target_steps < this->current_steps))
     {
         pid.SetMode(MANUAL);
-        stop_motor();
+        controlMotor(0);
 
         if (at_cw)
             this->current_steps = this->max_degrees * this->steps_per_degree;
@@ -94,7 +94,7 @@ void Rotor::loop()
         if (at_ccw)
             this->current_steps = 0;
 
-        //this->target_steps = this->current_steps;
+        this->target_steps = this->current_steps;
 
         pid.SetMode(AUTOMATIC);
 
@@ -234,6 +234,7 @@ void Rotor::controlMotor(int pwmVal){
 
 void Rotor::stop_motor()
 {
-    this->target_steps = this->current_steps;
     controlMotor(0);
+    delay(20);
+    this->target_steps = this->current_steps;
 }
