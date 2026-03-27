@@ -81,21 +81,21 @@ void Rotor::loop()
     bool at_cw  = digitalRead(this->limit_switch_cw)  == HIGH;
     bool at_ccw = digitalRead(this->limit_switch_ccw) == HIGH;
 
-    // block movement INTO a limit
-    if ((at_cw && this->target_steps > this->current_steps) ||
-        (at_ccw && this->target_steps < this->current_steps))
+    if (at_cw)
+        this->current_steps = (long)(this->max_degrees * this->steps_per_degree);
+
+    if (at_ccw)
+        this->current_steps = 0;
+    
+        // block movement INTO a limit
+    if ((at_cw && this->target_steps >= this->current_steps) ||
+        (at_ccw && this->target_steps <= this->current_steps))
     {
         pid.SetMode(MANUAL);
         controlMotor(0);
 
-        if (at_cw)
-            this->current_steps = this->max_degrees * this->steps_per_degree;
-
-        if (at_ccw)
-            this->current_steps = 0;
-
         this->target_steps = this->current_steps;
-
+        this->output = 0;
         pid.SetMode(AUTOMATIC);
 
         return;
@@ -169,6 +169,9 @@ void Rotor::set_offset(float degrees)
 
 void Rotor::move_motor(float degrees)
 {
+    if (!this->is_calibrated)
+        return;
+
     degrees = degrees - this->offset;
 
     if (degrees > this->max_degrees || degrees < 0)
@@ -197,7 +200,7 @@ void Rotor::move_motor_by_steps(int steps)
 
 float Rotor::get_current_position()
 {
-    if (this->steps_per_degree == 0) return 0.0 + this->offset; // avoid division by zero
+    if (this->steps_per_degree == 0 || !this->is_calibrated) return 0.0 + this->offset; // avoid division by zero
     return (this->current_steps / this->steps_per_degree) + this->offset;
 }
 

@@ -52,11 +52,6 @@ void setup()
     RSERIAL.begin(115200);
     RSERIAL.setTimeout(50);
 
-    rotator.begin(KP, KI, KD, NAN, NAN, NAN);
-    rotator.set_range(90, 0);
-
-    rotator.calibrate();
-
     easycommCommandsCallback(&cb_handler, EasycommParserStandard2);
 
     // Override registry with Azimuth, Get Azimuth, and Stop
@@ -76,6 +71,13 @@ void setup()
         &SerialTaskHandle,  // Task handle
         0                  // Core 0
     );
+    
+    rotator.begin(KP, KI, KD, NAN, NAN, NAN);
+    rotator.set_range(90, 0);
+    rotator.set_offset(135, 0);
+
+    rotator.calibrate();
+
 }
 
 void loop()
@@ -175,12 +177,14 @@ void parseCustomCommands(String line) {
 
 void onSetAzimuth(const EasycommData *cmd, void *user_data) {
     float targetAz = cmd->as.setAzimuth.azimuth;
-    rotator.move_motor(targetAz, 0);
+    Position p = rotator.get_current_position();
+    rotator.move_motor(targetAz, p.elevation);
 }
 
 void onSetElevation(const EasycommData *cmd, void *user_data) {
     float targetEl = cmd->as.setElevation.elevation;
-    rotator.move_motor(0, targetEl);
+    Position p = rotator.get_current_position();
+    rotator.move_motor(p.azimuth, targetEl);
 }
 
 void onSingleLine(const EasycommData *cmd, void *user_data){
