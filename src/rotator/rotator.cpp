@@ -131,3 +131,11 @@ Position Rotator::get_offset()
 
     return p;
 }
+
+void Rotator::set_settings(const Settings& azimuth_settings, const Settings& eleveation_settings) {
+    if (this->azimuth)
+        this->azimuth->set_settings(azimuth_settings);
+
+    if (this->elevation)
+        this->elevation->set_settings(eleveation_settings);
+}

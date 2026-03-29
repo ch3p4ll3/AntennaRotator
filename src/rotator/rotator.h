@@ -1,4 +1,5 @@
 #include "../rotor/rotor.h"
+#include "../settings/settings.h"
 
 
 struct Position {
@@ -28,4 +29,6 @@ class Rotator{
         Position get_current_position();
         Position get_range();
         Position get_offset();
+
+        void set_settings(const Settings& azimuth_settings, const Settings& eleveation_settings);
 };

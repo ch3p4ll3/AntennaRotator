@@ -1,6 +1,7 @@
 #include "config.h"
 #include "./rotor/rotor.h"
 #include "./rotator/rotator.h"
+#include "./settings/settings.h"
 
 #include <easycomm-parser-types-ctors.h>
 #include <easycomm-parser.h>
@@ -25,6 +26,9 @@
 
 
 EasycommCommandsCallback cb_handler;
+
+SettingsData azimuthSettingsData = DEFAULT_CONFIGS;
+Settings azimuthSettings("az-settings");
 
 Rotor azimuth(MOTOR_CW, MOTOR_CCW, LIMIT_CW, LIMIT_CCW, ENCODER);
 Rotator rotator(&azimuth, nullptr);
@@ -71,10 +75,15 @@ void setup()
         &SerialTaskHandle,  // Task handle
         0                  // Core 0
     );
+
+    azimuthSettings.begin(azimuthSettingsData);
     
     rotator.begin(KP, KI, KD, NAN, NAN, NAN);
-    rotator.set_range(90, 0);
-    rotator.set_offset(135, 0);
+
+    rotator.set_settings(azimuthSettings, nullptr);
+
+    // rotator.set_range(90, 0);
+    // rotator.set_offset(135, 0);
 
     rotator.calibrate();
 

@@ -241,3 +241,7 @@ void Rotor::stop_motor()
     delay(20);
     this->target_steps = this->current_steps;
 }
+
+void Rotor::set_settings(const Settings& settings) {
+    this->settings = settings;
+}
