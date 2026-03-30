@@ -71,6 +71,15 @@ void Rotor::begin(double kp=NAN, double ki=NAN, double kd=NAN)
 
     if (!isnan(kp) && !isnan(ki) && !isnan(kd))
         this->pid.SetTunings(kp, ki, kd);
+
+    SettingsData data;
+    this->settings->getSettings(&data);
+
+    this->offset = data.offset;
+    this->max_degrees = data.range;
+    this->steps_per_degree = data.stepsPerDegree;
+
+    DEBUG_PRINTF("offset %F, maxdeg: %F, steps %F", offset,max_degrees, steps_per_degree);
 }
 
 void Rotor::loop()
@@ -155,16 +164,34 @@ void Rotor::calibrate()
     this->is_calibrated = true;
 
     DEBUG_PRINTF("Calibration complete. Steps per degree: %F", this->steps_per_degree);
+
+    SettingsData data;
+    this->settings->getSettings(&data);
+
+    data.stepsPerDegree = this->steps_per_degree;
+    this->settings->setSettings(&data);
 }
 
 void Rotor::set_range(float degrees)
 {
     this->max_degrees = degrees;
+
+    SettingsData data;
+    this->settings->getSettings(&data);
+
+    data.range = degrees;
+    this->settings->setSettings(&data);
 }
 
 void Rotor::set_offset(float degrees)
 {
     this->offset = degrees;
+    
+    SettingsData data;
+    this->settings->getSettings(&data);
+
+    data.offset = degrees;
+    this->settings->setSettings(&data);
 }
 
 void Rotor::move_motor(float degrees)
@@ -242,6 +269,6 @@ void Rotor::stop_motor()
     this->target_steps = this->current_steps;
 }
 
-void Rotor::set_settings(const Settings& settings) {
+void Rotor::set_settings(Settings *settings) {
     this->settings = settings;
 }

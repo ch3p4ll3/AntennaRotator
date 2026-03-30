@@ -28,7 +28,9 @@
 EasycommCommandsCallback cb_handler;
 
 SettingsData azimuthSettingsData = DEFAULT_CONFIGS;
+SettingsData elevationSettingsData = DEFAULT_CONFIGS;
 Settings azimuthSettings("az-settings");
+Settings elevationSettings("el-settings");
 
 Rotor azimuth(MOTOR_CW, MOTOR_CCW, LIMIT_CW, LIMIT_CCW, ENCODER);
 Rotator rotator(&azimuth, nullptr);
@@ -77,13 +79,10 @@ void setup()
     );
 
     azimuthSettings.begin(azimuthSettingsData);
+    elevationSettings.begin(elevationSettingsData);
     
+    rotator.set_settings(&azimuthSettings, &elevationSettings);
     rotator.begin(KP, KI, KD, NAN, NAN, NAN);
-
-    rotator.set_settings(azimuthSettings, nullptr);
-
-    // rotator.set_range(90, 0);
-    // rotator.set_offset(135, 0);
 
     rotator.calibrate();
 

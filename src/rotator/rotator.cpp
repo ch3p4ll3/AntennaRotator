@@ -132,7 +132,7 @@ Position Rotator::get_offset()
     return p;
 }
 
-void Rotator::set_settings(const Settings& azimuth_settings, const Settings& eleveation_settings) {
+void Rotator::set_settings(Settings *azimuth_settings, Settings *eleveation_settings) {
     if (this->azimuth)
         this->azimuth->set_settings(azimuth_settings);
 

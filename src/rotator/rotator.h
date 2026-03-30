@@ -30,5 +30,5 @@ class Rotator{
         Position get_range();
         Position get_offset();
 
-        void set_settings(const Settings& azimuth_settings, const Settings& eleveation_settings);
+        void set_settings(Settings *azimuth_settings, Settings *eleveation_settings);
 };

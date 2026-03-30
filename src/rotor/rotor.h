@@ -36,7 +36,7 @@ private:
     PID pid = PID(&input, &output, &setpoint, 2.0, 0.5, 0.1, DIRECT);
     void controlMotor(int pwmVal);
 
-    Settings settings;
+    Settings *settings;
 
 public:
     Rotor(int motor_pin, int motor_direction_pin, int limit_switch_cw, int limit_switch_ccw, int encoder_pin);
@@ -54,5 +54,5 @@ public:
     float get_offset();
     void stop_motor();
 
-    void set_settings(const Settings& settings);
+    void set_settings(Settings *settings);
 };
